@@ -86,6 +86,19 @@ def init_workspace(args: argparse.Namespace) -> dict:
     config_root, detected_kind = _config_root_info(source_path)
     source_kind = args.source_kind if args.source_kind != "auto" else detected_kind
 
+    build_help = not bool(args.without_help)
+    build_code = bool(args.with_code)
+    build_full = bool(args.with_full_pack)
+    if args.profile == "base":
+        build_help = True if not args.without_help else False
+    elif args.profile == "dev":
+        build_help = True if not args.without_help else False
+        build_code = True
+    elif args.profile == "full":
+        build_help = True if not args.without_help else False
+        build_code = True
+        build_full = True
+
     manifest: dict[str, object] = {
         "format": "onec_workspace_manifest_v1",
         "created_at": _now_iso(),
@@ -93,6 +106,7 @@ def init_workspace(args: argparse.Namespace) -> dict:
         "tool_repo": str(REPO_ROOT),
         "source_path": str(source_path),
         "source_kind": source_kind,
+        "profile": args.profile,
         "base_configs": list(args.base_config or []),
         "requested_platforms": list(args.platform or []),
         "packs": {},
@@ -125,22 +139,23 @@ def init_workspace(args: argparse.Namespace) -> dict:
         _run(metadata_args)
         manifest["packs"]["metadata"] = str(packs_dir / "metadata.kb.db.zst")
 
-        code_args = [
-            sys.executable,
-            str(REPO_ROOT / "scripts" / "build_code_pack.py"),
-            "--source-dir",
-            str(config_root),
-            "--db-path",
-            str(onec_root / "cache" / "code.pack.db"),
-            "--out-zst",
-            str(packs_dir / "code.pack.db.zst"),
-            "--manifest",
-            str(manifests_dir / "code.pack.manifest.json"),
-        ]
-        _run(code_args)
-        manifest["packs"]["code"] = str(packs_dir / "code.pack.db.zst")
+        if build_code:
+            code_args = [
+                sys.executable,
+                str(REPO_ROOT / "scripts" / "build_code_pack.py"),
+                "--source-dir",
+                str(config_root),
+                "--db-path",
+                str(onec_root / "cache" / "code.pack.db"),
+                "--out-zst",
+                str(packs_dir / "code.pack.db.zst"),
+                "--manifest",
+                str(manifests_dir / "code.pack.manifest.json"),
+            ]
+            _run(code_args)
+            manifest["packs"]["code"] = str(packs_dir / "code.pack.db.zst")
 
-        if args.with_full_pack:
+        if build_full:
             full_args = [
                 sys.executable,
                 str(REPO_ROOT / "scripts" / "build_config_pack.py"),
@@ -179,7 +194,11 @@ def init_workspace(args: argparse.Namespace) -> dict:
         )
 
     hbk_base = _detect_hbk_base(args.hbk_base)
-    if hbk_base is not None and args.with_help:
+    if build_help and hbk_base is None:
+        raise ValueError(
+            "Platform help is mandatory for the base profile. Provide --hbk-base, set ONEC_HBK_BASE, or use --without-help only for an explicit nonstandard flow."
+        )
+    if hbk_base is not None and build_help:
         help_args = [
             sys.executable,
             str(REPO_ROOT / "scripts" / "build_local_kb.py"),
@@ -212,11 +231,18 @@ def main() -> int:
     parser.add_argument("--workspace-root", default=".")
     parser.add_argument("--source-path", default=".")
     parser.add_argument("--source-kind", default="auto", choices=["auto", "configdump", "extension", "metadata-export"])
+    parser.add_argument(
+        "--profile",
+        default="base",
+        choices=["base", "dev", "full"],
+        help="base=help+metadata, dev=help+metadata+code, full=help+metadata+code+full-pack",
+    )
     parser.add_argument("--base-config", action="append", default=[], help="Possible base configuration IDs/names for an extension workspace.")
     parser.add_argument("--metadata-source", default=None, help="Optional metadata XML export XML dir/file for fallback or verification.")
     parser.add_argument("--hbk-base", default=None, help="Optional HBK root; defaults to env or /opt/1cv8 when available.")
     parser.add_argument("--platform", action="append", default=[], help="Optional platform versions to include when building help.")
-    parser.add_argument("--with-help", action="store_true", help="Build platform help pack when HBK is available.")
+    parser.add_argument("--without-help", action="store_true", help="Disable platform help even though it is part of the default base profile.")
+    parser.add_argument("--with-code", action="store_true", help="Also build code.pack on top of the selected profile.")
     parser.add_argument("--with-full-pack", action="store_true", help="Also build lossless ConfigDump pack.")
     args = parser.parse_args()
     manifest = init_workspace(args)

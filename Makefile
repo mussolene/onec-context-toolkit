@@ -6,13 +6,18 @@ CONFIG_VERSIONS ?=
 CONFIG_SOURCE ?=
 WORKSPACE_ROOT ?= .
 SOURCE_KIND ?= auto
-WITH_HELP ?=
+PROFILE ?= base
+WITH_CODE ?=
 WITH_FULL_PACK ?=
+WITHOUT_HELP ?=
 
-.PHONY: init status install-codex install-claude install-cursor kb-build-help kb-build-metadata kb-build-all config-pack code-pack verify benchmark export-skill export-skill-archive
+.PHONY: bootstrap init status install-codex install-claude install-cursor kb-build-help kb-build-metadata kb-build-all config-pack code-pack verify benchmark export-skill export-skill-archive
+
+bootstrap:
+	$(PYTHON) scripts/bootstrap.py $(if $(WORKSPACE_ROOT),--workspace-root "$(WORKSPACE_ROOT)",) $(if $(CONFIG_SOURCE),--source-path "$(CONFIG_SOURCE)",) --profile "$(PROFILE)" $(if $(SOURCE_KIND),--source-kind "$(SOURCE_KIND)",) $(if $(METADATA_SOURCE),--metadata-source "$(METADATA_SOURCE)",) $(if $(HBK_BASE),--hbk-base "$(HBK_BASE)",) $(if $(PLATFORMS),$(foreach v,$(PLATFORMS),--platform $(v)),) $(if $(WITH_CODE),--with-code,) $(if $(WITH_FULL_PACK),--with-full-pack,) $(if $(WITHOUT_HELP),--without-help,)
 
 init:
-	$(PYTHON) scripts/init_workspace.py --workspace-root "$(WORKSPACE_ROOT)" --source-path "$(CONFIG_SOURCE)" --source-kind "$(SOURCE_KIND)" $(if $(METADATA_SOURCE),--metadata-source "$(METADATA_SOURCE)",) $(if $(HBK_BASE),--hbk-base "$(HBK_BASE)",) $(if $(PLATFORMS),$(foreach v,$(PLATFORMS),--platform $(v)),) $(if $(WITH_HELP),--with-help,) $(if $(WITH_FULL_PACK),--with-full-pack,)
+	$(PYTHON) scripts/init_workspace.py --workspace-root "$(WORKSPACE_ROOT)" --source-path "$(CONFIG_SOURCE)" --source-kind "$(SOURCE_KIND)" --profile "$(PROFILE)" $(if $(METADATA_SOURCE),--metadata-source "$(METADATA_SOURCE)",) $(if $(HBK_BASE),--hbk-base "$(HBK_BASE)",) $(if $(PLATFORMS),$(foreach v,$(PLATFORMS),--platform $(v)),) $(if $(WITH_CODE),--with-code,) $(if $(WITH_FULL_PACK),--with-full-pack,) $(if $(WITHOUT_HELP),--without-help,)
 
 status:
 	$(PYTHON) scripts/status_workspace.py --workspace-root "$(WORKSPACE_ROOT)" $(if $(PLATFORMS),$(foreach v,$(PLATFORMS),--platform $(v)),)

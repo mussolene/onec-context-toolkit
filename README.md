@@ -20,12 +20,12 @@
   - `ConfigDump` конфигурации
   - `ConfigDump` расширения
   - `metadata XML export` как optional fallback / verification
-  - `HBK` платформенной справки как optional help source
+  - `HBK` платформенной справки как обязательный source для language/API слоя
 - `pack builders`
   - `metadata pack`
   - `code pack`
   - optional `full pack`
-  - optional `platform help pack`
+  - `platform help pack`
 - `workspace binding`
   - `.onec/workspace.manifest.json`
   - хранит source-kind, base configs, versions, built packs, optional sources
@@ -36,17 +36,24 @@
 
 Primary route:
 - `ConfigDump` source tree -> `metadata pack`
-- `ConfigDump` source tree -> `code pack`
+- `HBK` source tree -> `platform help pack`
+- `ConfigDump` source tree -> optional `code pack`
 - `ConfigDump` source tree -> optional `full pack`
 
 Optional route:
 - `metadata XML export` -> fallback metadata source или проверочный слой
-- `HBK` -> platform help pack
 
 `metadata XML export` не является обязательным шагом. Его стоит оставлять как:
 - fallback, если нет нормального source tree;
 - verification layer для спорных мест;
 - дополнительный источник для уточнения реквизитов/типов.
+
+Базовый обязательный слой для агента:
+- `help + metadata`
+
+Опциональные слои:
+- `code.pack` для анализа логики
+- `config.dump` для lossless file-level reads
 
 ## Понятный режим при подъёме версий
 
@@ -72,7 +79,31 @@ Optional route:
 python3 -m pip install -e .
 ```
 
-Установить integration:
+или полностью через bootstrap:
+
+```bash
+bin/onec-bootstrap
+```
+
+Быстрый bootstrap для первого запуска:
+
+```bash
+bin/onec-bootstrap --agent codex
+```
+
+или сразу с инициализацией workspace:
+
+```bash
+bin/onec-bootstrap \
+  --agent codex \
+  --workspace-root /path/to/workspace \
+  --source-path /path/to/workspace \
+  --profile base \
+  --hbk-base /opt/1cv8 \
+  --platform 8.2.19.130
+```
+
+Установить integration отдельно:
 
 ```bash
 ./install/install_codex.sh
@@ -86,16 +117,29 @@ python3 -m pip install -e .
 bin/onec-context init \
   --workspace-root /path/to/workspace \
   --source-path /path/to/workspace \
-  --with-full-pack
+  --profile base \
+  --hbk-base /opt/1cv8 \
+  --platform 8.2.19.130
 ```
 
-Если нужна платформенная справка:
+Собрать слой анализа логики:
 
 ```bash
 bin/onec-context init \
   --workspace-root /path/to/workspace \
   --source-path /path/to/workspace \
-  --with-help \
+  --profile dev \
+  --hbk-base /opt/1cv8 \
+  --platform 8.2.19.130
+```
+
+Полный слой с lossless pack:
+
+```bash
+bin/onec-context init \
+  --workspace-root /path/to/workspace \
+  --source-path /path/to/workspace \
+  --profile full \
   --hbk-base /opt/1cv8 \
   --platform 8.2.19.130
 ```
@@ -162,11 +206,11 @@ bin/onec-context export --workspace-root /path/to/workspace --archive
 
 В конкретном workspace toolkit собирает:
 
+- `.onec/packs/kb.db.zst` как обязательный language/API layer
 - `.onec/workspace.manifest.json`
 - `.onec/packs/metadata.kb.db.zst`
-- `.onec/packs/code.pack.db.zst`
-- `.onec/packs/config.dump.db.zst` при `--with-full-pack`
-- `.onec/packs/kb.db.zst` при `--with-help`
+- `.onec/packs/code.pack.db.zst` при `--profile dev|full` или `--with-code`
+- `.onec/packs/config.dump.db.zst` при `--profile full` или `--with-full-pack`
 - `.onec/manifests/*.manifest.json`
 - `.onec/cache/*.db`
 
@@ -210,16 +254,18 @@ bin/onec-context export --workspace-root /path/to/workspace --archive
 
 - Один универсальный skill проще, чем много skill-per-config.
 - Packs должны быть project-bound, а не repo-global.
+- `HBK + metadata` должны быть обязательным базовым слоем.
 - `ConfigDump` должен быть основным источником для metadata/code.
 - `metadata XML export` лучше оставить optional fallback/verification, а не primary source.
 - Для расширений важно явно хранить возможные `base_configs`.
 - Для version drift нужен штатный `status`, а не ручная догадка.
+- Самая тяжёлая часть первого старта — `code.pack`, поэтому она не должна быть дефолтом.
 
 Если нужен полный rebuild одного workspace, правильный цикл такой:
 
 ```bash
 bin/onec-context status --workspace-root .
-bin/onec-context init --workspace-root . --source-path . --with-full-pack
+bin/onec-context init --workspace-root . --source-path . --profile full --hbk-base /opt/1cv8 --platform 8.2.19.130
 python3 tools/verify_local_kb.py --workspace-root .
 bin/onec-context export --workspace-root . --archive
 ```

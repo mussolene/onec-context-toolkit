@@ -6,9 +6,11 @@ alwaysApply: false
 
 - When working with a 1C repository, initialize local packs if `.onec/workspace.manifest.json` is missing or stale:
   - `{entrypoint} status --workspace-root . --strict`
-  - `{entrypoint} init --workspace-root . --source-path .`
+  - `{entrypoint} init --workspace-root . --source-path . --profile base`
+- Treat `.onec/packs/kb.db.zst` and `.onec/packs/metadata.kb.db.zst` as the mandatory base layer.
 - Prefer `.onec/packs/metadata.kb.db.zst` for requisites, tabular sections, form attributes, and type lookups.
-- Prefer `.onec/packs/code.pack.db.zst` for module, symbol, caller, and callee lookup.
+- Prefer `.onec/packs/kb.db.zst` for platform language and API knowledge.
+- Use `.onec/packs/code.pack.db.zst` only when module, symbol, caller, and callee lookup are required.
 - Use `.onec/packs/config.dump.db.zst` only when exact file bytes are needed.
 - metadata XML export is optional fallback or verification input, not the primary source.
 - The tool repo lives at `{repo_root}`.
