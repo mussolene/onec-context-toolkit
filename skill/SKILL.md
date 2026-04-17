@@ -17,20 +17,17 @@ Use this bundle when:
 
 ## Runtime order
 
-1. Prefer `artifacts/metadata.kb.db.zst` for metadata questions.
-2. Prefer `artifacts/code.pack.db.zst` for symbol and call graph questions.
-3. Use `artifacts/config.dump.db.zst` only when exact source bytes or full file reads are required.
-4. Use `artifacts/kb.db.zst` only for platform help/API lookup.
+1. Read `bundle.manifest.json` and use exact artifact paths from `packs.platform` and `targets.*.packs.*`; do not hardcode filenames.
+2. Prefer `targets.<source-identity>.packs.metadata` for metadata questions when it is present.
+3. Prefer `targets.<source-identity>.packs.code` for symbol and call graph questions when it is present.
+4. Use `targets.<source-identity>.packs.full` only when exact source bytes or full file reads are required.
+5. Use `packs.platform` only for platform help/API lookup.
 
 ## Practical commands
 
 ```bash
 python3 tools/verify_local_kb.py --artifacts-dir ./artifacts
-python3 tools/local_kb_query.py --db ./artifacts/metadata.kb.db.zst --q "Document.РеализацияТоваровУслуг.Товары.Номенклатура" --exact --limit 10
-python3 tools/query_code_pack.py --db ./artifacts/code.pack.db.zst symbols --q "УстановитьСтатусДокумента"
-python3 tools/query_code_pack.py --db ./artifacts/code.pack.db.zst callers --symbol "УстановитьСтатусДокумента"
-python3 tools/query_config_pack.py --db ./artifacts/config.dump.db.zst read --path "Documents/РеализацияТоваровУслуг/Ext/ObjectModule.bsl"
-python3 tools/local_kb_query.py --db ./artifacts/kb.db.zst --q "HTTPСоединение.Получить" --limit 10
+# Then read actual pack paths from bundle.manifest.json -> packs.platform and targets.*.packs.*
 ```
 
 ## Interpretation
@@ -46,4 +43,5 @@ python3 tools/local_kb_query.py --db ./artifacts/kb.db.zst --q "HTTPСоедин
 - This bundle is read-only.
 - It does not rebuild packs itself.
 - If a required artifact is missing, state that explicitly.
+- `targets.*.packs.metadata`, `targets.*.packs.code`, and `targets.*.packs.full` may be absent in minimal bundles.
 - `metadata XML export` is optional and may be absent from the bundle.

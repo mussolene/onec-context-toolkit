@@ -51,6 +51,30 @@ def _pack_entry(name: str, pack_path: Path) -> dict[str, object]:
     return entry
 
 
+def _legacy_targets(manifest: dict[str, object]) -> dict[str, dict[str, object]]:
+    packs = manifest.get("packs") or {}
+    if not isinstance(packs, dict):
+        packs = {}
+    legacy_packs = {
+        key: value
+        for key, value in packs.items()
+        if key in {"metadata", "code", "full"}
+    }
+    config_root = manifest.get("config_root")
+    source_snapshot = manifest.get("source_snapshot")
+    if not legacy_packs and not config_root and not source_snapshot:
+        return {}
+    source_identity = str(manifest.get("source_identity") or "legacy-target")
+    return {
+        source_identity: {
+            "source_kind": manifest.get("source_kind"),
+            "config_root": config_root,
+            "source_snapshot": source_snapshot,
+            "packs": legacy_packs,
+        }
+    }
+
+
 def collect_status(workspace_root: Path, requested_platforms: list[str] | None = None) -> dict[str, object]:
     workspace_root = workspace_root.expanduser().resolve()
     onec_root = workspace_root / ".onec"
@@ -72,15 +96,7 @@ def collect_status(workspace_root: Path, requested_platforms: list[str] | None =
     result["manifest"] = manifest
     issues: list[str] = []
     pack_entries: dict[str, object] = {}
-
-    config_root_value = manifest.get("config_root")
-    config_root = Path(config_root_value) if isinstance(config_root_value, str) else None
-    current_snapshot = _current_source_snapshot(config_root)
-    recorded_snapshot = manifest.get("source_snapshot")
-    result["current_source_snapshot"] = current_snapshot
-
-    if recorded_snapshot != current_snapshot:
-        issues.append("config source snapshot drifted; metadata/code/full packs should be rebuilt")
+    target_entries: dict[str, object] = {}
 
     packs = manifest.get("packs") or {}
     for name, path_value in packs.items():
@@ -119,10 +135,64 @@ def collect_status(workspace_root: Path, requested_platforms: list[str] | None =
                     "platform help pack is missing requested versions: " + ", ".join(missing_platforms)
                 )
 
-    if str(manifest.get("source_kind") or "") == "extension" and not manifest.get("base_configs"):
+    targets = manifest.get("targets")
+    if not isinstance(targets, dict) or not targets:
+        targets = _legacy_targets(manifest)
+
+    for target_name, target_payload in targets.items():
+        target_result: dict[str, object] = {
+            "name": target_name,
+            "recorded_source_snapshot": target_payload.get("source_snapshot"),
+            "packs": {},
+        }
+        config_root_value = target_payload.get("config_root")
+        config_root = Path(config_root_value) if isinstance(config_root_value, str) else None
+        current_snapshot = _current_source_snapshot(config_root)
+        target_result["current_source_snapshot"] = current_snapshot
+        if target_payload.get("source_snapshot") != current_snapshot:
+            issues.append(f"target {target_name}: config source snapshot drifted; rebuild source-bound packs")
+
+        target_packs = target_payload.get("packs") or {}
+        if isinstance(target_packs, dict):
+            for pack_name, path_value in target_packs.items():
+                if not isinstance(path_value, str):
+                    issues.append(f"target {target_name}: pack entry {pack_name} has invalid path")
+                    continue
+                pack_path = Path(path_value).expanduser().resolve()
+                pack_entry = _pack_entry(pack_name, pack_path)
+                target_result["packs"][pack_name] = pack_entry
+                if not pack_entry["exists"]:
+                    issues.append(f"target {target_name}: pack {pack_name} is missing")
+                    continue
+                if not pack_entry["manifest_exists"]:
+                    issues.append(f"target {target_name}: manifest for pack {pack_name} is missing")
+                    continue
+                manifest_payload = pack_entry["manifest"]
+                if pack_name == "metadata" and current_snapshot is not None:
+                    versions_seen = (
+                        ((manifest_payload.get("stats") or {}).get("versions_seen") or {})
+                        if isinstance(manifest_payload, dict)
+                        else {}
+                    )
+                    current_version = str(current_snapshot.get("config_version") or "")
+                    if current_version and current_version not in versions_seen:
+                        issues.append(f"target {target_name}: metadata pack does not contain current configuration version")
+                if pack_name in {"code", "full"} and current_snapshot is not None:
+                    source_dir = str(manifest_payload.get("source_dir") or "")
+                    if source_dir and source_dir != str(current_snapshot.get("source_root")):
+                        issues.append(f"target {target_name}: {pack_name} pack source root does not match current config root")
+        target_entries[target_name] = target_result
+
+    target_source_kinds = [
+        str((payload or {}).get("source_kind") or "")
+        for payload in targets.values()
+        if isinstance(payload, dict)
+    ]
+    if "extension" in target_source_kinds and not manifest.get("base_configs"):
         issues.append("extension workspace has no declared base_configs")
 
     result["packs"] = pack_entries
+    result["targets"] = target_entries
     result["issues"] = issues
     result["status"] = "ok" if not issues else "stale"
     return result

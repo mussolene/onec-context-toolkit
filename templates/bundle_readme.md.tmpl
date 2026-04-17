@@ -9,16 +9,15 @@
 - `SKILL.md` — runtime-инструкция для локального agent skill
 - `tools/` — query и verify utilities
 - `artifacts/` — готовые compact packs и их manifest'ы
+- `bundle.manifest.json` — карта bundle pack'ов по ролям (`packs.platform`, `targets.*.packs.*`)
 
 Базовое использование:
 
 ```bash
 python3 tools/verify_local_kb.py --artifacts-dir ./artifacts
-python3 tools/local_kb_query.py --db ./artifacts/metadata.kb.db.zst --q "Document.РеализацияТоваровУслуг"
-python3 tools/query_code_pack.py --db ./artifacts/code.pack.db.zst symbols --q "УстановитьСтатусДокумента"
+# Дальше смотри точные пути pack'ов в bundle.manifest.json -> packs.platform и targets.*.packs.*
 ```
 
 Замечания:
 - Этот bundle не пересобирает packs сам по себе; для rebuild нужен source repo.
-- `config.dump.db.zst` может отсутствовать, если workspace был инициализирован без `--with-full-pack`.
-- `kb.db.zst` может отсутствовать, если help pack не собирался.
+- `targets.*.packs.metadata`, `targets.*.packs.code`, и `targets.*.packs.full` могут отсутствовать в минимальном bundle.

@@ -486,7 +486,9 @@ def _resolve_metadata_snapshot_dirs(args: argparse.Namespace) -> list[Path]:
     from onec_help.metadata_index import (
         build_snapshot_from_config_source,
         find_config_roots,
+        get_config_source_info,
         is_config_source_root,
+        source_identity_stem,
     )
 
     if args.metadata_jsonl_dir:
@@ -517,10 +519,22 @@ def _resolve_metadata_snapshot_dirs(args: argparse.Namespace) -> list[Path]:
         output_root = Path(args.work_dir).expanduser().resolve() / "config_metadata_snapshot"
         output_root.mkdir(parents=True, exist_ok=True)
         out_dirs: list[Path] = []
-        for config_root in config_roots:
-            target_name = config_root.name if config_root != source else source.name
+        infos = [get_config_source_info(config_root) for config_root in config_roots]
+        counts: dict[str, int] = {}
+        for info in infos:
+            base_name = source_identity_stem(info)
+            counts[base_name] = counts.get(base_name, 0) + 1
+        used: set[str] = set()
+        for idx, info in enumerate(infos, start=1):
+            target_name = source_identity_stem(info)
+            if counts[target_name] > 1:
+                suffix = re.sub(r"[^\w.-]+", "-", Path(info.source_root).name.lower()).strip("._-") or f"root-{idx}"
+                target_name = f"{target_name}.{suffix}"
+                if target_name in used:
+                    target_name = f"{target_name}.{idx}"
+            used.add(target_name)
             out_dir = output_root / target_name.lower()
-            out_dirs.append(build_snapshot_from_config_source(config_root, out_dir))
+            out_dirs.append(build_snapshot_from_config_source(Path(info.source_root), out_dir))
         return out_dirs
 
     if not args.metadata_source:

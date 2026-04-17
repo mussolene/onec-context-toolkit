@@ -6,6 +6,8 @@ from .configdump import (
     find_config_roots,
     get_config_source_info,
     is_config_source_root,
+    list_config_source_infos,
+    source_identity_stem,
 )
 
 __all__ = [
@@ -14,4 +16,6 @@ __all__ = [
     "find_config_roots",
     "get_config_source_info",
     "is_config_source_root",
+    "list_config_source_infos",
+    "source_identity_stem",
 ]

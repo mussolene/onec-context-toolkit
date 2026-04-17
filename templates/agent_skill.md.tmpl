@@ -21,27 +21,28 @@ Primary entrypoint: `{entrypoint}`
    - `{entrypoint} status --workspace-root <repo> --strict`
 2. If `.onec/workspace.manifest.json` is missing or stale, initialize or rebuild the workspace:
    - `{entrypoint} init --workspace-root <repo> --source-path <repo-or-config-root>`
-3. The base workspace should always have `.onec/packs/kb.db.zst` and `.onec/packs/metadata.kb.db.zst`.
-4. Prefer `.onec/packs/metadata.kb.db.zst` for requisites, types, tabular sections, and form metadata.
-5. Prefer `.onec/packs/kb.db.zst` for platform language and API knowledge.
-6. Use `.onec/packs/code.pack.db.zst` only when module, symbol, caller, and callee lookup are required.
-7. Use `.onec/packs/config.dump.db.zst` only when exact file bytes or full source reads are required.
+3. Read `.onec/workspace.manifest.json` and use the exact paths from `packs.platform` and `targets.*.packs.*`; do not hardcode pack filenames.
+4. The base workspace should always have `packs.platform`.
+5. Build or use `targets.<source-identity>.packs.metadata` only when requisites, types, tabular sections, or form metadata are needed.
+6. Prefer `packs.platform` for platform language and API knowledge.
+7. Use `targets.<source-identity>.packs.code` only when module, symbol, caller, and callee lookup are required.
+8. Use `targets.<source-identity>.packs.full` only when exact file bytes or full source reads are required.
 
 ## Practical commands
 
 ```bash
 {entrypoint} status --workspace-root . --strict
 {entrypoint} init --workspace-root . --source-path . --profile base
-python3 "{repo_root}/tools/local_kb_query.py" --db ./.onec/packs/metadata.kb.db.zst --q "Document.РеализацияТоваровУслуг.Товары.Номенклатура" --exact --limit 10
-python3 "{repo_root}/tools/local_kb_query.py" --db ./.onec/packs/kb.db.zst --q "HTTPСоединение.Получить" --limit 10
-python3 "{repo_root}/tools/query_code_pack.py" --db ./.onec/packs/code.pack.db.zst symbols --q "УстановитьСтатусДокумента"
-python3 "{repo_root}/tools/query_code_pack.py" --db ./.onec/packs/code.pack.db.zst callers --symbol "УстановитьСтатусДокумента"
+{entrypoint} init --workspace-root . --source-path . --profile metadata
+# Re-run with --profile dev only when logic-level code analysis is required
+# Then read actual pack paths from ./.onec/workspace.manifest.json -> packs.platform and targets.*.packs.*
 ```
 
 ## Notes
 
 - ConfigDump is the primary metadata source.
 - metadata XML export is optional fallback or verification input, not the main path.
+- A workspace may have multiple config roots; select the right target under `.onec/workspace.manifest.json -> targets`.
 - Extensions may declare multiple possible base configurations; keep them in `.onec/workspace.manifest.json`.
 - If platform version or source configuration version changes, rerun `status`; it should drive a rebuild of stale packs.
-- The default profile is `base`, which means `help + metadata`. `code.pack` is an opt-in layer for logic analysis.
+- The default profile is `base`, which means `help only`. `metadata`, `code.pack`, and `full` are opt-in layers.

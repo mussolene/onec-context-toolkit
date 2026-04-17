@@ -83,6 +83,8 @@ def bootstrap(args: argparse.Namespace) -> dict[str, object]:
             init_cmd.extend(["--platform", version])
         for base_config in args.base_config or []:
             init_cmd.extend(["--base-config", base_config])
+        if args.with_metadata:
+            init_cmd.append("--with-metadata")
         if args.with_code:
             init_cmd.append("--with-code")
         if args.with_full_pack:
@@ -104,11 +106,12 @@ def main() -> int:
     parser.add_argument("--workspace-root", default=None, help="Optional workspace to initialize after dependencies are ready")
     parser.add_argument("--source-path", default=None, help="Optional source root for workspace initialization")
     parser.add_argument("--source-kind", default="auto", choices=["auto", "configdump", "extension", "metadata-export"])
-    parser.add_argument("--profile", default="base", choices=["base", "dev", "full"])
+    parser.add_argument("--profile", default="base", choices=["base", "metadata", "dev", "full"])
     parser.add_argument("--metadata-source", default=None)
     parser.add_argument("--hbk-base", default=None)
     parser.add_argument("--platform", action="append", default=[])
     parser.add_argument("--base-config", action="append", default=[])
+    parser.add_argument("--with-metadata", action="store_true")
     parser.add_argument("--with-code", action="store_true")
     parser.add_argument("--with-full-pack", action="store_true")
     parser.add_argument("--without-help", action="store_true")

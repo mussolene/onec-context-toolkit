@@ -49,9 +49,10 @@ Optional route:
 - дополнительный источник для уточнения реквизитов/типов.
 
 Базовый обязательный слой для агента:
-- `help + metadata`
+- `help`
 
 Опциональные слои:
+- `metadata` для реквизитов, типов, табличных частей и форм
 - `code.pack` для анализа логики
 - `config.dump` для lossless file-level reads
 
@@ -122,6 +123,17 @@ bin/onec-context init \
   --platform 8.2.19.130
 ```
 
+Добавить metadata-слой по запросу:
+
+```bash
+bin/onec-context init \
+  --workspace-root /path/to/workspace \
+  --source-path /path/to/workspace \
+  --profile metadata \
+  --hbk-base /opt/1cv8 \
+  --platform 8.2.19.130
+```
+
 Собрать слой анализа логики:
 
 ```bash
@@ -151,6 +163,8 @@ bin/onec-context init \
   --workspace-root /path/to/extension \
   --source-path /path/to/extension \
   --source-kind extension \
+  --profile base \
+  --hbk-base /opt/1cv8 \
   --base-config "БухгалтерияПредприятия@3.0.184.16" \
   --base-config "УправлениеНашейФирмой@3.0.13.260"
 ```
@@ -161,6 +175,8 @@ bin/onec-context init \
 bin/onec-context init \
   --workspace-root /path/to/workspace \
   --source-path /path/to/workspace \
+  --profile metadata \
+  --hbk-base /opt/1cv8 \
   --metadata-source /path/to/metadata_export
 ```
 
@@ -175,8 +191,9 @@ bin/onec-context status --workspace-root /path/to/workspace --strict
 Query по metadata:
 
 ```bash
+# Сначала посмотри путь metadata pack в .onec/workspace.manifest.json -> targets.<source-identity>.packs.metadata
 python3 tools/local_kb_query.py \
-  --db /path/to/workspace/.onec/packs/metadata.kb.db.zst \
+  --db /path/to/workspace/.onec/packs/<source-identity>.metadata.kb.db.zst \
   --q "Document.РеализацияТоваровУслуг.Товары.Номенклатура" \
   --exact --limit 10
 ```
@@ -184,8 +201,9 @@ python3 tools/local_kb_query.py \
 Query по code pack:
 
 ```bash
+# Сначала посмотри путь code pack в .onec/workspace.manifest.json -> targets.<source-identity>.packs.code
 python3 tools/query_code_pack.py \
-  --db /path/to/workspace/.onec/packs/code.pack.db.zst \
+  --db /path/to/workspace/.onec/packs/<source-identity>.code.pack.db.zst \
   symbols --q "УстановитьСтатусДокумента"
 ```
 
@@ -206,13 +224,19 @@ bin/onec-context export --workspace-root /path/to/workspace --archive
 
 В конкретном workspace toolkit собирает:
 
-- `.onec/packs/kb.db.zst` как обязательный language/API layer
 - `.onec/workspace.manifest.json`
-- `.onec/packs/metadata.kb.db.zst`
-- `.onec/packs/code.pack.db.zst` при `--profile dev|full` или `--with-code`
-- `.onec/packs/config.dump.db.zst` при `--profile full` или `--with-full-pack`
+- `.onec/packs/platform.<versions>.kb.db.zst` как обязательный language/API layer
+- `.onec/packs/<source-identity>.metadata.kb.db.zst` при `--profile metadata|dev|full` или `--with-metadata`
+- `.onec/packs/<source-identity>.code.pack.db.zst` при `--profile dev|full` или `--with-code`
+- `.onec/packs/<source-identity>.config.dump.db.zst` при `--profile full` или `--with-full-pack`
 - `.onec/manifests/*.manifest.json`
 - `.onec/cache/*.db`
+
+`<source-identity>` формируется из имени и версии конфигурации или расширения. Например:
+- `config.бухгалтерияпредприятиякорп.3.0.184.16`
+- `extension.мое-расширение.1.2.0`
+
+Если `--source-path` указывает на папку с несколькими `Configuration.xml`, toolkit собирает отдельные target packs для каждого root и записывает их в `.onec/workspace.manifest.json -> targets`.
 
 ## Что хранить в git, а что нет
 
@@ -254,7 +278,8 @@ bin/onec-context export --workspace-root /path/to/workspace --archive
 
 - Один универсальный skill проще, чем много skill-per-config.
 - Packs должны быть project-bound, а не repo-global.
-- `HBK + metadata` должны быть обязательным базовым слоем.
+- `HBK` должен быть обязательным базовым слоем.
+- `metadata` и `code.pack` лучше собирать lazy, по вопросу пользователя или когда агент понимает, что без этого уже не ответить.
 - `ConfigDump` должен быть основным источником для metadata/code.
 - `metadata XML export` лучше оставить optional fallback/verification, а не primary source.
 - Для расширений важно явно хранить возможные `base_configs`.

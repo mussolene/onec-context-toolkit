@@ -37,6 +37,25 @@ def _load_workspace_manifest(workspace_root: Path) -> dict:
     return json.loads(manifest_path.read_text(encoding="utf-8"))
 
 
+def _iter_manifest_packs(manifest: dict) -> list[tuple[str | None, str, Path]]:
+    out: list[tuple[str | None, str, Path]] = []
+    packs = manifest.get("packs") or {}
+    if isinstance(packs, dict):
+        for pack_name, pack_path_value in packs.items():
+            if isinstance(pack_path_value, str):
+                out.append((None, str(pack_name), Path(pack_path_value).expanduser().resolve()))
+    targets = manifest.get("targets") or {}
+    if isinstance(targets, dict):
+        for target_name, target_payload in targets.items():
+            target_packs = (target_payload or {}).get("packs") or {}
+            if not isinstance(target_packs, dict):
+                continue
+            for pack_name, pack_path_value in target_packs.items():
+                if isinstance(pack_path_value, str):
+                    out.append((str(target_name), str(pack_name), Path(pack_path_value).expanduser().resolve()))
+    return out
+
+
 def export_bundle(workspace_root: Path, output_dir: Path, bundle_name: str) -> Path:
     workspace_root = workspace_root.expanduser().resolve()
     manifest = _load_workspace_manifest(workspace_root)
@@ -61,10 +80,10 @@ def export_bundle(workspace_root: Path, output_dir: Path, bundle_name: str) -> P
             raise FileNotFoundError(f"required bundle file is missing: {src}")
         _copy(src, dst)
 
-    packs = manifest.get("packs") or {}
     copied_files: list[str] = []
-    for pack_name, pack_path_value in packs.items():
-        pack_path = Path(str(pack_path_value)).expanduser().resolve()
+    copied_packs: dict[str, str] = {}
+    copied_targets: dict[str, dict[str, object]] = {}
+    for target_name, pack_name, pack_path in _iter_manifest_packs(manifest):
         if not pack_path.is_file():
             raise FileNotFoundError(f"workspace pack is missing: {pack_path}")
         pack_manifest = pack_path.parent.parent / "manifests" / pack_path.name.replace(".db.zst", ".manifest.json")
@@ -74,9 +93,17 @@ def export_bundle(workspace_root: Path, output_dir: Path, bundle_name: str) -> P
         manifest_dst = bundle_root / "artifacts" / pack_manifest.name
         _copy(pack_path, pack_dst)
         _copy(pack_manifest, manifest_dst)
+        rel_pack = str(pack_dst.relative_to(bundle_root)).replace("\\", "/")
+        if target_name is None:
+            copied_packs[str(pack_name)] = rel_pack
+        else:
+            copied_targets.setdefault(str(target_name), {"packs": {}})
+            target_packs = copied_targets[str(target_name)]["packs"]
+            assert isinstance(target_packs, dict)
+            target_packs[str(pack_name)] = rel_pack
         copied_files.extend(
             [
-                str(pack_dst.relative_to(bundle_root)).replace("\\", "/"),
+                rel_pack,
                 str(manifest_dst.relative_to(bundle_root)).replace("\\", "/"),
             ]
         )
@@ -86,6 +113,8 @@ def export_bundle(workspace_root: Path, output_dir: Path, bundle_name: str) -> P
         "name": bundle_name,
         "workspace_root": str(workspace_root),
         "source_workspace_manifest": manifest,
+        "packs": copied_packs,
+        "targets": copied_targets,
         "files": copied_files,
     }
     _write(bundle_root / "bundle.manifest.json", json.dumps(bundle_manifest, ensure_ascii=False, indent=2))

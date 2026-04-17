@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -54,6 +55,13 @@ class ConfigSourceInfo:
     config_version: str
     configuration_xml: Path
     configuration_xml_mtime_ns: int
+
+
+def _slug_part(value: str) -> str:
+    text = " ".join((value or "").strip().split()).lower()
+    text = re.sub(r"[^\w.-]+", "-", text, flags=re.UNICODE)
+    text = text.strip("._-")
+    return text or "unnamed"
 
 
 def _strip_ns(tag: str) -> str:
@@ -182,6 +190,17 @@ def get_config_source_info(config_root: Path) -> ConfigSourceInfo:
         configuration_xml=config_xml,
         configuration_xml_mtime_ns=config_xml.stat().st_mtime_ns if config_xml.exists() else 0,
     )
+
+
+def list_config_source_infos(base: Path, *, max_depth: int = 10) -> list[ConfigSourceInfo]:
+    base = base.expanduser().resolve()
+    roots = [base] if is_config_source_root(base) else find_config_roots(base, max_depth=max_depth)
+    return [get_config_source_info(root) for root in roots]
+
+
+def source_identity_stem(info: ConfigSourceInfo) -> str:
+    kind = "extension" if info.source_kind == "extension" else "config"
+    return f"{kind}.{_slug_part(info.config_name)}.{_slug_part(info.config_version)}"
 
 
 def _field(
