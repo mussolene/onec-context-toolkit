@@ -1,0 +1,24 @@
+# Onec Context Bundle
+
+Этот bundle собран из workspace `{workspace_root}`.
+
+Источник:
+- `source_kind`: `{source_kind}`
+
+Что внутри:
+- `SKILL.md` — runtime-инструкция для локального agent skill
+- `tools/` — query и verify utilities
+- `artifacts/` — готовые compact packs и их manifest'ы
+
+Базовое использование:
+
+```bash
+python3 tools/verify_local_kb.py --artifacts-dir ./artifacts
+python3 tools/local_kb_query.py --db ./artifacts/metadata.kb.db.zst --q "Document.РеализацияТоваровУслуг"
+python3 tools/query_code_pack.py --db ./artifacts/code.pack.db.zst symbols --q "УстановитьСтатусДокумента"
+```
+
+Замечания:
+- Этот bundle не пересобирает packs сам по себе; для rebuild нужен source repo.
+- `config.dump.db.zst` может отсутствовать, если workspace был инициализирован без `--with-full-pack`.
+- `kb.db.zst` может отсутствовать, если help pack не собирался.

@@ -1,0 +1,15 @@
+---
+description: 1C source-first local context workflow for ConfigDump, extensions, and metadata XML export fallback
+globs:
+alwaysApply: false
+---
+
+- When working with a 1C repository, initialize local packs if `.onec/workspace.manifest.json` is missing or stale:
+  - `{entrypoint} status --workspace-root . --strict`
+  - `{entrypoint} init --workspace-root . --source-path .`
+- Prefer `.onec/packs/metadata.kb.db.zst` for requisites, tabular sections, form attributes, and type lookups.
+- Prefer `.onec/packs/code.pack.db.zst` for module, symbol, caller, and callee lookup.
+- Use `.onec/packs/config.dump.db.zst` only when exact file bytes are needed.
+- metadata XML export is optional fallback or verification input, not the primary source.
+- The tool repo lives at `{repo_root}`.
+- If source version or platform version changes, rerun `status` and rebuild stale packs.

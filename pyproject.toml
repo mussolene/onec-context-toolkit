@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "onec-context-toolkit"
+version = "0.2.0"
+description = "Source-first local context toolkit for 1C: ConfigDump, code, metadata, and optional platform help"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "beautifulsoup4>=4.12",
+    "defusedxml>=0.7",
+    "tree-sitter>=0.25",
+    "tree-sitter-bsl>=0.1.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]

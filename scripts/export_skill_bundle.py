@@ -1,0 +1,131 @@
+#!/usr/bin/env python3
+"""Export a self-contained runtime skill bundle from a built workspace."""
+
+from __future__ import annotations
+
+import argparse
+import json
+import shutil
+import tarfile
+from pathlib import Path
+
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_BUNDLE_NAME = "onec-context-skill-bundle"
+TEMPLATES_DIR = REPO_ROOT / "templates"
+
+
+def _copy(src: Path, dst: Path) -> None:
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(src, dst)
+
+
+def _render_template(name: str, **values: str) -> str:
+    template = (TEMPLATES_DIR / name).read_text(encoding="utf-8")
+    return template.format(**values)
+
+
+def _write(path: Path, content: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(content, encoding="utf-8")
+
+
+def _load_workspace_manifest(workspace_root: Path) -> dict:
+    manifest_path = workspace_root / ".onec" / "workspace.manifest.json"
+    if not manifest_path.is_file():
+        raise FileNotFoundError(f"workspace manifest is missing: {manifest_path}")
+    return json.loads(manifest_path.read_text(encoding="utf-8"))
+
+
+def export_bundle(workspace_root: Path, output_dir: Path, bundle_name: str) -> Path:
+    workspace_root = workspace_root.expanduser().resolve()
+    manifest = _load_workspace_manifest(workspace_root)
+    bundle_root = output_dir / bundle_name
+    if bundle_root.exists():
+        shutil.rmtree(bundle_root)
+    bundle_root.mkdir(parents=True, exist_ok=True)
+
+    runtime_files = [
+        (REPO_ROOT / "skill" / "SKILL.md", bundle_root / "SKILL.md"),
+        (REPO_ROOT / "tools" / "local_kb_query.py", bundle_root / "tools" / "local_kb_query.py"),
+        (REPO_ROOT / "tools" / "verify_local_kb.py", bundle_root / "tools" / "verify_local_kb.py"),
+        (REPO_ROOT / "tools" / "benchmark_local_kb.py", bundle_root / "tools" / "benchmark_local_kb.py"),
+        (REPO_ROOT / "tools" / "query_config_pack.py", bundle_root / "tools" / "query_config_pack.py"),
+        (REPO_ROOT / "tools" / "query_code_pack.py", bundle_root / "tools" / "query_code_pack.py"),
+        (REPO_ROOT / "tools" / "1c" / "external data processor file", bundle_root / "tools" / "1c" / "external data processor file"),
+        (REPO_ROOT / "tools" / "1c" / "external data processor root XML", bundle_root / "tools" / "1c" / "external data processor root XML"),
+        (REPO_ROOT / "tools" / "1c" / "build_external_data_processor.sh", bundle_root / "tools" / "1c" / "build_external_data_processor.sh"),
+    ]
+    for src, dst in runtime_files:
+        if not src.is_file():
+            raise FileNotFoundError(f"required bundle file is missing: {src}")
+        _copy(src, dst)
+
+    packs = manifest.get("packs") or {}
+    copied_files: list[str] = []
+    for pack_name, pack_path_value in packs.items():
+        pack_path = Path(str(pack_path_value)).expanduser().resolve()
+        if not pack_path.is_file():
+            raise FileNotFoundError(f"workspace pack is missing: {pack_path}")
+        pack_manifest = pack_path.parent.parent / "manifests" / pack_path.name.replace(".db.zst", ".manifest.json")
+        if not pack_manifest.is_file():
+            raise FileNotFoundError(f"workspace pack manifest is missing: {pack_manifest}")
+        pack_dst = bundle_root / "artifacts" / pack_path.name
+        manifest_dst = bundle_root / "artifacts" / pack_manifest.name
+        _copy(pack_path, pack_dst)
+        _copy(pack_manifest, manifest_dst)
+        copied_files.extend(
+            [
+                str(pack_dst.relative_to(bundle_root)).replace("\\", "/"),
+                str(manifest_dst.relative_to(bundle_root)).replace("\\", "/"),
+            ]
+        )
+
+    bundle_manifest = {
+        "format": "onec_skill_bundle_v1",
+        "name": bundle_name,
+        "workspace_root": str(workspace_root),
+        "source_workspace_manifest": manifest,
+        "files": copied_files,
+    }
+    _write(bundle_root / "bundle.manifest.json", json.dumps(bundle_manifest, ensure_ascii=False, indent=2))
+    _write(
+        bundle_root / "README.md",
+        _render_template(
+            "bundle_readme.md.tmpl",
+            workspace_root=str(workspace_root),
+            source_kind=str(manifest.get("source_kind") or "unknown"),
+        ),
+    )
+    return bundle_root
+
+
+def create_archive(bundle_root: Path) -> Path:
+    archive_path = bundle_root.with_suffix(".tar.gz")
+    if archive_path.exists():
+        archive_path.unlink()
+    with tarfile.open(archive_path, "w:gz") as tar:
+        tar.add(bundle_root, arcname=bundle_root.name)
+    return archive_path
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Export runtime skill bundle from a workspace .onec")
+    parser.add_argument("--workspace-root", default=".", help="Workspace root that already contains .onec/")
+    parser.add_argument("--output-dir", default="dist", help="Directory for exported bundle")
+    parser.add_argument("--name", default=DEFAULT_BUNDLE_NAME, help="Bundle folder name")
+    parser.add_argument("--archive", action="store_true", help="Also create .tar.gz archive")
+    args = parser.parse_args()
+
+    output_dir = (REPO_ROOT / args.output_dir).resolve()
+    output_dir.mkdir(parents=True, exist_ok=True)
+    bundle_root = export_bundle(Path(args.workspace_root), output_dir, args.name)
+    print(f"bundle_dir: {bundle_root}")
+    if args.archive:
+        archive_path = create_archive(bundle_root)
+        print(f"bundle_archive: {archive_path}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

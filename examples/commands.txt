@@ -1,0 +1,4 @@
+python3 scripts/build_local_kb.py all --hbk-base /opt/1cv8 --metadata-source /path/to/metadata_export
+python3 tools/local_kb_query.py --db ./artifacts/kb.db.zst --q "Глобальный контекст.ПрочитатьJSON" --limit 10
+python3 tools/local_kb_query.py --db ./artifacts/kb.db.zst --q "HTTPСоединение.Получить" --limit 10
+python3 tools/local_kb_query.py --db ./artifacts/metadata.kb.db.zst --q "Document.РеализацияТоваровУслуг" --limit 10
