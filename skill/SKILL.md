@@ -17,7 +17,7 @@ Use this bundle when:
 
 ## Runtime order
 
-1. Read `bundle.manifest.json` and use exact artifact paths from `packs.platform` and `targets.*.packs.*`; do not hardcode filenames.
+1. Resolve exact artifact paths with `python3 tools/resolve_packs.py --bundle-dir .`; do not hardcode filenames.
 2. Prefer `targets.<source-identity>.packs.metadata` for metadata questions when it is present.
 3. Prefer `targets.<source-identity>.packs.code` for symbol and call graph questions when it is present.
 4. Use `targets.<source-identity>.packs.full` only when exact source bytes or full file reads are required.
@@ -27,7 +27,7 @@ Use this bundle when:
 
 ```bash
 python3 tools/verify_local_kb.py --artifacts-dir ./artifacts
-# Then read actual pack paths from bundle.manifest.json -> packs.platform and targets.*.packs.*
+python3 tools/resolve_packs.py --bundle-dir .
 ```
 
 ## Interpretation

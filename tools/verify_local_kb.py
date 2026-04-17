@@ -6,77 +6,61 @@ from __future__ import annotations
 import argparse
 import json
 import sqlite3
-import subprocess
-import tempfile
+import sys
 from pathlib import Path
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 ARTIFACTS = REPO_ROOT / "artifacts"
+SRC_DIR = REPO_ROOT / "src"
+if str(SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(SRC_DIR))
+
+from onec_help.runtime_db import ensure_sqlite_db  # noqa: E402
+from onec_help.workspace_manifest import load_workspace_manifest, manifest_targets, platform_pack  # noqa: E402
 
 
 def _load_json(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def _ensure_db(path: Path) -> tuple[Path, bool]:
-    if path.suffix != ".zst":
-        return path, False
-    fd, tmp = tempfile.mkstemp(prefix="verify_kb_", suffix=".db")
-    Path(tmp).unlink(missing_ok=True)
-    subprocess.run(["zstd", "-q", "-d", "-f", str(path), "-o", tmp], check=True)
-    return Path(tmp), True
-
-
 def _check_query(path: Path, query: str) -> tuple[int, list[tuple[str, str, str]]]:
-    db_path, temp = _ensure_db(path)
-    try:
-        con = sqlite3.connect(db_path)
-        cur = con.cursor()
-        rows = cur.execute(
-            """
-            SELECT domain, name, topic_path
-            FROM docs
-            WHERE lower(name)=lower(?) OR lower(topic_path)=lower(?)
-            LIMIT 5
-            """,
-            (query, query),
-        ).fetchall()
-        con.close()
-        return len(rows), rows
-    finally:
-        if temp:
-            db_path.unlink(missing_ok=True)
+    db_path, _temp = ensure_sqlite_db(path, cache_name="verify_cache")
+    con = sqlite3.connect(db_path)
+    cur = con.cursor()
+    rows = cur.execute(
+        """
+        SELECT domain, name, topic_path
+        FROM docs
+        WHERE lower(name)=lower(?) OR lower(topic_path)=lower(?)
+        LIMIT 5
+        """,
+        (query, query),
+    ).fetchall()
+    con.close()
+    return len(rows), rows
 
 
 def _blank_metadata_fields(path: Path) -> int:
-    db_path, temp = _ensure_db(path)
-    try:
-        con = sqlite3.connect(db_path)
-        cur = con.cursor()
-        value = cur.execute(
-            "SELECT count(*) FROM docs WHERE domain='metadata_fields' AND (name IS NULL OR name='')"
-        ).fetchone()[0]
-        con.close()
-        return int(value)
-    finally:
-        if temp:
-            db_path.unlink(missing_ok=True)
+    db_path, _temp = ensure_sqlite_db(path, cache_name="verify_cache")
+    con = sqlite3.connect(db_path)
+    cur = con.cursor()
+    value = cur.execute(
+        "SELECT count(*) FROM docs WHERE domain='metadata_fields' AND (name IS NULL OR name='')"
+    ).fetchone()[0]
+    con.close()
+    return int(value)
 
 
 def _has_form_metadata(path: Path) -> bool:
-    db_path, temp = _ensure_db(path)
-    try:
-        con = sqlite3.connect(db_path)
-        cur = con.cursor()
-        value = cur.execute(
-            "SELECT 1 FROM docs WHERE domain='metadata_fields' AND topic_path LIKE '%.Forms.%' LIMIT 1"
-        ).fetchone()
-        con.close()
-        return value is not None
-    finally:
-        if temp:
-            db_path.unlink(missing_ok=True)
+    db_path, _temp = ensure_sqlite_db(path, cache_name="verify_cache")
+    con = sqlite3.connect(db_path)
+    cur = con.cursor()
+    value = cur.execute(
+        "SELECT 1 FROM docs WHERE domain='metadata_fields' AND topic_path LIKE '%.Forms.%' LIMIT 1"
+    ).fetchone()
+    con.close()
+    return value is not None
 
 
 def _resolve_artifacts_dir(workspace_root: str | None, artifacts_dir: str | None) -> Path:
@@ -133,27 +117,19 @@ def _resolve_pack_paths(workspace_root: str | None, artifacts_dir: str | None) -
     if workspace_root:
         manifest_path = Path(workspace_root).expanduser().resolve() / ".onec" / "workspace.manifest.json"
         if manifest_path.is_file():
-            payload = _load_json(manifest_path)
+            payload = load_workspace_manifest(Path(workspace_root))
             resolved = {"platform": [], "metadata": [], "code": [], "full": []}
-            packs = payload.get("packs") or {}
-            if isinstance(packs, dict):
-                platform = packs.get("platform")
-                if isinstance(platform, str):
-                    resolved["platform"].append(Path(platform).expanduser().resolve())
-                for legacy_kind in ("metadata", "code", "full"):
-                    value = packs.get(legacy_kind)
+            platform = platform_pack(payload)
+            if platform:
+                resolved["platform"].append(Path(platform).expanduser().resolve())
+            for target in manifest_targets(payload).values():
+                target_packs = (target or {}).get("packs") or {}
+                if not isinstance(target_packs, dict):
+                    continue
+                for kind in ("metadata", "code", "full"):
+                    value = target_packs.get(kind)
                     if isinstance(value, str):
-                        resolved[legacy_kind].append(Path(value).expanduser().resolve())
-            targets = payload.get("targets") or {}
-            if isinstance(targets, dict):
-                for target in targets.values():
-                    target_packs = (target or {}).get("packs") or {}
-                    if not isinstance(target_packs, dict):
-                        continue
-                    for kind in ("metadata", "code", "full"):
-                        value = target_packs.get(kind)
-                        if isinstance(value, str):
-                            resolved[kind].append(Path(value).expanduser().resolve())
+                        resolved[kind].append(Path(value).expanduser().resolve())
             if any(resolved.values()):
                 return {
                     kind: _dedupe(paths) if paths else fallback[kind]

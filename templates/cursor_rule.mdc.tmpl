@@ -7,11 +7,11 @@ alwaysApply: false
 - When working with a 1C repository, initialize local packs if `.onec/workspace.manifest.json` is missing or stale:
   - `{entrypoint} status --workspace-root . --strict`
   - `{entrypoint} init --workspace-root . --source-path . --profile base`
-- Read actual pack paths from `.onec/workspace.manifest.json -> packs.platform` and `targets.*.packs.*`; do not hardcode filenames.
+- Resolve exact pack paths with `{entrypoint} resolve-packs --workspace-root .`; do not hardcode filenames.
 - Treat `packs.platform` as the mandatory base layer.
-- Build or use `targets.<source-identity>.packs.metadata` only for requisites, tabular sections, form attributes, and type lookups.
+- Build metadata only when needed via `{entrypoint} ensure --workspace-root . --need metadata`.
 - Prefer `packs.platform` for platform language and API knowledge.
-- Use `targets.<source-identity>.packs.code` only when module, symbol, caller, and callee lookup are required.
+- Build/use `targets.<source-identity>.packs.code` only when module, symbol, caller, and callee lookup are required via `{entrypoint} ensure --workspace-root . --need code`.
 - Use `targets.<source-identity>.packs.full` only when exact file bytes are needed.
 - metadata XML export is optional fallback or verification input, not the primary source.
 - The tool repo lives at `{repo_root}`.

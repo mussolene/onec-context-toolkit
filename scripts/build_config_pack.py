@@ -9,14 +9,21 @@ import json
 import os
 import sqlite3
 import subprocess
+import sys
 import time
 from collections import Counter
 from pathlib import Path
 
-import compression.zstd as zstd
-
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+SRC_DIR = REPO_ROOT / "src"
+if str(SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(SRC_DIR))
+
+from onec_help.zstd_compat import compress as zstd_compress  # noqa: E402
+from onec_help.zstd_compat import decompress as zstd_decompress  # noqa: E402
+
+
 TEXT_EXTENSIONS = {
     ".bsl",
     ".css",
@@ -234,7 +241,7 @@ def _verify_samples(root: Path, db_path: Path, rel_paths: list[str]) -> dict:
             mismatches.append(f"{rel_path}:missing-in-db")
             continue
         expected_sha, compression, blob = row
-        data = zstd.decompress(blob) if compression == "zstd" else blob
+        data = zstd_decompress(blob) if compression == "zstd" else blob
         if _sha256_bytes(data) != expected_sha:
             mismatches.append(f"{rel_path}:blob-sha-mismatch")
             continue
@@ -305,7 +312,7 @@ def build_pack(
             data = path.read_bytes()
             sha256 = _sha256_bytes(data)
             excerpt, encoding, content_kind = _text_excerpt(data, path, excerpt_chars)
-            blob = zstd.compress(data, level=zstd_level)
+            blob = zstd_compress(data, level=zstd_level)
             ext = path.suffix.lower()
             entry_id = cur.execute(
                 """

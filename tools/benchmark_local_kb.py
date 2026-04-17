@@ -7,58 +7,50 @@ import argparse
 import json
 import sqlite3
 import statistics
-import subprocess
-import tempfile
+import sys
 import time
 from pathlib import Path
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 ARTIFACTS = REPO_ROOT / "artifacts"
+SRC_DIR = REPO_ROOT / "src"
+if str(SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(SRC_DIR))
+
+from onec_help.runtime_db import ensure_sqlite_db  # noqa: E402
+from onec_help.workspace_manifest import load_workspace_manifest, manifest_targets, platform_pack  # noqa: E402
 
 
 def _load_json(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def _ensure_db(path: Path) -> tuple[Path, bool]:
-    if path.suffix != ".zst":
-        return path, False
-    fd, tmp = tempfile.mkstemp(prefix="bench_kb_", suffix=".db")
-    Path(tmp).unlink(missing_ok=True)
-    subprocess.run(["zstd", "-q", "-d", "-f", str(path), "-o", tmp], check=True)
-    return Path(tmp), True
-
-
 def _run_bench(path: Path, queries: list[str], loops: int = 5) -> None:
-    db_path, temp = _ensure_db(path)
-    try:
-        con = sqlite3.connect(db_path)
-        cur = con.cursor()
-        timings: list[float] = []
-        for _ in range(loops):
-            for query in queries:
-                started = time.perf_counter()
-                cur.execute(
-                    """
-                    SELECT domain, name
-                    FROM docs
-                    WHERE lower(name)=lower(?) OR docs.id IN (
-                        SELECT rowid FROM docs_fts WHERE docs_fts MATCH ?
-                    )
-                    LIMIT 5
-                    """,
-                    (query, " AND ".join(token for token in query.replace(".", " ").split() if token)),
-                ).fetchall()
-                timings.append((time.perf_counter() - started) * 1000)
-        con.close()
-        print(
-            f"{path.name}: size_mb={path.stat().st_size / 1024 / 1024:.2f} runs={len(timings)} avg_ms={statistics.mean(timings):.2f} "
-            f"p95_ms={sorted(timings)[max(0, int(len(timings) * 0.95) - 1)]:.2f}"
-        )
-    finally:
-        if temp:
-            db_path.unlink(missing_ok=True)
+    db_path, _temp = ensure_sqlite_db(path, cache_name="benchmark_cache")
+    con = sqlite3.connect(db_path)
+    cur = con.cursor()
+    timings: list[float] = []
+    for _ in range(loops):
+        for query in queries:
+            started = time.perf_counter()
+            cur.execute(
+                """
+                SELECT domain, name
+                FROM docs
+                WHERE lower(name)=lower(?) OR docs.id IN (
+                    SELECT rowid FROM docs_fts WHERE docs_fts MATCH ?
+                )
+                LIMIT 5
+                """,
+                (query, " AND ".join(token for token in query.replace(".", " ").split() if token)),
+            ).fetchall()
+            timings.append((time.perf_counter() - started) * 1000)
+    con.close()
+    print(
+        f"{path.name}: size_mb={path.stat().st_size / 1024 / 1024:.2f} runs={len(timings)} avg_ms={statistics.mean(timings):.2f} "
+        f"p95_ms={sorted(timings)[max(0, int(len(timings) * 0.95) - 1)]:.2f}"
+    )
 
 
 def _resolve_artifacts_dir(workspace_root: str | None, artifacts_dir: str | None) -> Path:
@@ -115,27 +107,19 @@ def _resolve_pack_paths(workspace_root: str | None, artifacts_dir: str | None) -
     if workspace_root:
         manifest_path = Path(workspace_root).expanduser().resolve() / ".onec" / "workspace.manifest.json"
         if manifest_path.is_file():
-            payload = _load_json(manifest_path)
+            payload = load_workspace_manifest(Path(workspace_root))
             resolved = {"platform": [], "metadata": [], "code": [], "full": []}
-            packs = payload.get("packs") or {}
-            if isinstance(packs, dict):
-                platform = packs.get("platform")
-                if isinstance(platform, str):
-                    resolved["platform"].append(Path(platform).expanduser().resolve())
-                for legacy_kind in ("metadata", "code", "full"):
-                    value = packs.get(legacy_kind)
+            platform = platform_pack(payload)
+            if platform:
+                resolved["platform"].append(Path(platform).expanduser().resolve())
+            for target in manifest_targets(payload).values():
+                target_packs = (target or {}).get("packs") or {}
+                if not isinstance(target_packs, dict):
+                    continue
+                for kind in ("metadata", "code", "full"):
+                    value = target_packs.get(kind)
                     if isinstance(value, str):
-                        resolved[legacy_kind].append(Path(value).expanduser().resolve())
-            targets = payload.get("targets") or {}
-            if isinstance(targets, dict):
-                for target in targets.values():
-                    target_packs = (target or {}).get("packs") or {}
-                    if not isinstance(target_packs, dict):
-                        continue
-                    for kind in ("metadata", "code", "full"):
-                        value = target_packs.get(kind)
-                        if isinstance(value, str):
-                            resolved[kind].append(Path(value).expanduser().resolve())
+                        resolved[kind].append(Path(value).expanduser().resolve())
             if any(resolved.values()):
                 return {
                     kind: _dedupe(paths) if paths else fallback[kind]

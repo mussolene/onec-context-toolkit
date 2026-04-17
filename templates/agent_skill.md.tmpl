@@ -21,21 +21,22 @@ Primary entrypoint: `{entrypoint}`
    - `{entrypoint} status --workspace-root <repo> --strict`
 2. If `.onec/workspace.manifest.json` is missing or stale, initialize or rebuild the workspace:
    - `{entrypoint} init --workspace-root <repo> --source-path <repo-or-config-root>`
-3. Read `.onec/workspace.manifest.json` and use the exact paths from `packs.platform` and `targets.*.packs.*`; do not hardcode pack filenames.
+3. Use `{entrypoint} resolve-packs --workspace-root <repo>` to get exact pack paths; do not hardcode pack filenames.
 4. The base workspace should always have `packs.platform`.
-5. Build or use `targets.<source-identity>.packs.metadata` only when requisites, types, tabular sections, or form metadata are needed.
+5. If metadata is missing and the question needs requisites, types, tabular sections, or form metadata, run `{entrypoint} ensure --workspace-root <repo> --need metadata`.
 6. Prefer `packs.platform` for platform language and API knowledge.
-7. Use `targets.<source-identity>.packs.code` only when module, symbol, caller, and callee lookup are required.
-8. Use `targets.<source-identity>.packs.full` only when exact file bytes or full source reads are required.
+7. If code analysis is required and `code.pack` is absent, run `{entrypoint} ensure --workspace-root <repo> --need code`.
+8. Use `targets.<source-identity>.packs.full` only when exact file bytes or full source reads are required; build it with `{entrypoint} ensure --workspace-root <repo> --need full`.
 
 ## Practical commands
 
 ```bash
+{entrypoint} doctor --workspace-init --hbk-base /opt/1cv8
 {entrypoint} status --workspace-root . --strict
 {entrypoint} init --workspace-root . --source-path . --profile base
-{entrypoint} init --workspace-root . --source-path . --profile metadata
-# Re-run with --profile dev only when logic-level code analysis is required
-# Then read actual pack paths from ./.onec/workspace.manifest.json -> packs.platform and targets.*.packs.*
+{entrypoint} ensure --workspace-root . --need metadata
+{entrypoint} resolve-packs --workspace-root . --role platform --path-only
+# Use ensure --need code only when logic-level analysis is required
 ```
 
 ## Notes

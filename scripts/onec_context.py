@@ -12,10 +12,17 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 
 COMMAND_TO_SCRIPT = {
     "bootstrap": REPO_ROOT / "scripts" / "bootstrap.py",
+    "doctor": REPO_ROOT / "scripts" / "doctor.py",
+    "ensure": REPO_ROOT / "scripts" / "ensure_workspace.py",
+    "resolve-packs": REPO_ROOT / "scripts" / "resolve_packs.py",
     "init": REPO_ROOT / "scripts" / "init_workspace.py",
     "install-agent": REPO_ROOT / "scripts" / "install_agent.py",
     "status": REPO_ROOT / "scripts" / "status_workspace.py",
     "verify": REPO_ROOT / "tools" / "verify_local_kb.py",
+    "benchmark": REPO_ROOT / "tools" / "benchmark_local_kb.py",
+    "query-kb": REPO_ROOT / "tools" / "local_kb_query.py",
+    "query-code": REPO_ROOT / "tools" / "query_code_pack.py",
+    "query-config": REPO_ROOT / "tools" / "query_config_pack.py",
     "export": REPO_ROOT / "scripts" / "export_skill_bundle.py",
 }
 

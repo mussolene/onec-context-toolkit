@@ -13,6 +13,7 @@ dependencies = [
     "defusedxml>=0.7",
     "tree-sitter>=0.25",
     "tree-sitter-bsl>=0.1.0",
+    "zstandard>=0.23",
 ]
 
 [tool.setuptools.packages.find]

@@ -49,12 +49,12 @@ Optional route:
 - дополнительный источник для уточнения реквизитов/типов.
 
 Базовый обязательный слой для агента:
-- `help`
+- `help` (`--profile base`)
 
 Опциональные слои:
-- `metadata` для реквизитов, типов, табличных частей и форм
-- `code.pack` для анализа логики
-- `config.dump` для lossless file-level reads
+- `metadata` (`ensure --need metadata` или `--profile metadata`) для реквизитов, типов, табличных частей и форм
+- `code.pack` (`ensure --need code` или `--profile dev`) для анализа логики
+- `config.dump` (`ensure --need full` или `--profile full`) для lossless file-level reads
 
 ## Понятный режим при подъёме версий
 
@@ -182,18 +182,38 @@ bin/onec-context init \
 
 ## Основные команды
 
+Проверить prerequisites:
+
+```bash
+bin/onec-context doctor --workspace-init --hbk-base /opt/1cv8
+```
+
 Статус:
 
 ```bash
 bin/onec-context status --workspace-root /path/to/workspace --strict
 ```
 
+Достроить слой только когда он реально нужен:
+
+```bash
+bin/onec-context ensure --workspace-root /path/to/workspace --need metadata
+bin/onec-context ensure --workspace-root /path/to/workspace --need code
+```
+
+Посмотреть target'ы и точные pack paths без ручного разбора manifest:
+
+```bash
+bin/onec-context resolve-packs --workspace-root /path/to/workspace
+bin/onec-context resolve-packs --workspace-root /path/to/workspace --role platform --path-only
+bin/onec-context resolve-packs --workspace-root /path/to/workspace --role metadata --all-targets
+```
+
 Query по metadata:
 
 ```bash
-# Сначала посмотри путь metadata pack в .onec/workspace.manifest.json -> targets.<source-identity>.packs.metadata
-python3 tools/local_kb_query.py \
-  --db /path/to/workspace/.onec/packs/<source-identity>.metadata.kb.db.zst \
+bin/onec-context query-kb \
+  --db "$(bin/onec-context resolve-packs --workspace-root /path/to/workspace --role metadata --target <source-identity> --path-only)" \
   --q "Document.РеализацияТоваровУслуг.Товары.Номенклатура" \
   --exact --limit 10
 ```
@@ -201,17 +221,24 @@ python3 tools/local_kb_query.py \
 Query по code pack:
 
 ```bash
-# Сначала посмотри путь code pack в .onec/workspace.manifest.json -> targets.<source-identity>.packs.code
-python3 tools/query_code_pack.py \
-  --db /path/to/workspace/.onec/packs/<source-identity>.code.pack.db.zst \
+bin/onec-context query-code \
+  --db "$(bin/onec-context resolve-packs --workspace-root /path/to/workspace --role code --target <source-identity> --path-only)" \
   symbols --q "УстановитьСтатусДокумента"
+```
+
+Query по optional full pack:
+
+```bash
+bin/onec-context query-config \
+  --db "$(bin/onec-context resolve-packs --workspace-root /path/to/workspace --role full --target <source-identity> --path-only)" \
+  find --q "РеализацияТоваровУслуг"
 ```
 
 Verify:
 
 ```bash
-python3 tools/verify_local_kb.py --workspace-root /path/to/workspace
-python3 tools/benchmark_local_kb.py --workspace-root /path/to/workspace --loops 3
+bin/onec-context verify --workspace-root /path/to/workspace
+bin/onec-context benchmark --workspace-root /path/to/workspace --loops 3
 ```
 
 Экспорт runtime bundle из уже инициализированного workspace:

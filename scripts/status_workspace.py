@@ -97,6 +97,9 @@ def collect_status(workspace_root: Path, requested_platforms: list[str] | None =
     issues: list[str] = []
     pack_entries: dict[str, object] = {}
     target_entries: dict[str, object] = {}
+    legacy_config_root_value = manifest.get("config_root")
+    legacy_config_root = Path(legacy_config_root_value) if isinstance(legacy_config_root_value, str) else None
+    legacy_current_snapshot = _current_source_snapshot(legacy_config_root)
 
     packs = manifest.get("packs") or {}
     for name, path_value in packs.items():
@@ -113,18 +116,18 @@ def collect_status(workspace_root: Path, requested_platforms: list[str] | None =
             issues.append(f"manifest for pack {name} is missing")
             continue
         manifest_payload = pack_entry["manifest"]
-        if name == "metadata" and current_snapshot is not None:
+        if name == "metadata" and legacy_current_snapshot is not None:
             versions_seen = (
                 ((manifest_payload.get("stats") or {}).get("versions_seen") or {})
                 if isinstance(manifest_payload, dict)
                 else {}
             )
-            current_version = str(current_snapshot.get("config_version") or "")
+            current_version = str(legacy_current_snapshot.get("config_version") or "")
             if current_version and current_version not in versions_seen:
                 issues.append("metadata pack does not contain current configuration version")
-        if name in {"code", "full"} and current_snapshot is not None:
+        if name in {"code", "full"} and legacy_current_snapshot is not None:
             source_dir = str(manifest_payload.get("source_dir") or "")
-            if source_dir and source_dir != str(current_snapshot.get("source_root")):
+            if source_dir and source_dir != str(legacy_current_snapshot.get("source_root")):
                 issues.append(f"{name} pack source root does not match current config root")
         if name == "platform":
             expected = requested_platforms or list(manifest.get("requested_platforms") or [])

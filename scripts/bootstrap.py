@@ -38,6 +38,12 @@ def bootstrap(args: argparse.Namespace) -> dict[str, object]:
     venv_dir = Path(args.venv_dir).expanduser().resolve()
     python_bin = ensure_venv(venv_dir)
     ensure_editable_install(python_bin)
+    doctor_cmd = [str(python_bin), str(REPO_ROOT / "scripts" / "doctor.py")]
+    if args.workspace_root:
+        doctor_cmd.append("--workspace-init")
+    if args.hbk_base:
+        doctor_cmd.extend(["--hbk-base", args.hbk_base])
+    _run(doctor_cmd)
 
     result: dict[str, object] = {
         "repo_root": str(REPO_ROOT),
