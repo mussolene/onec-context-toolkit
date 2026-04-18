@@ -12,6 +12,7 @@ Toolkit работает как source-first слой локального 1С c
 - проверяет drift по версии платформы и версии конфигурации
 - экспортирует runtime bundle из уже собранного workspace
 - несёт отдельный supplemental knowledge layer по platform CLI и headless/server workflow
+- несёт отдельные supplemental knowledge layers по query strategy, object explanation и platform fact-check
 
 ## Архитектурная модель
 
@@ -42,8 +43,9 @@ Toolkit работает как source-first слой локального 1С c
 
 - `onec-context` отвечает за workspace lifecycle, packs, local query/runtime flow и source-first toolkit behavior
 - platform CLI, headless build, cluster/standalone administration и похожие темы можно подключать только как supplemental knowledge layer
+- query strategy, object explanation и platform fact-check тоже допустимы как supplemental layers, потому что они усиливают именно локальный toolkit workflow, а не подменяют его
 - supplemental layer допустим только если он напрямую помогает build/init/export/headless/admin сценариям этого toolkit
-- не смешивать supplemental platform knowledge с pack model, metadata/code/full runtime contract и базовым `onec-context` skill
+- не смешивать supplemental knowledge с pack model, metadata/code/full runtime contract и базовым `onec-context` skill
 - не переносить сюда соседние знания "на всякий случай"; сначала проверить, поддерживают ли они реальные use cases этого repo
 
 ## Источники и pack'и
@@ -181,6 +183,7 @@ onec-context benchmark --workspace-root /path/to/workspace --loops 3
 - `bin/onec-context` — repo-local CLI entrypoint
 - `scripts/onec_context.py` — универсальный Python entrypoint; при отсутствии локальной `.venv` сам запускает bootstrap
 - `docs/1c-platform-cli.md` — distilled reference по platform CLI и headless/server операциям 1С
+- `templates/*skill*.tmpl` и `templates/*rule*.tmpl` — self-contained supplemental guidance layers для агентов
 - `scripts/init_workspace.py` — source-first init
 - `scripts/status_workspace.py` — drift/status check
 - `scripts/install_agent.py` — integration install

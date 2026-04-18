@@ -58,7 +58,10 @@ python scripts/install_agent.py --agent codex
 При установке integration toolkit ставит:
 
 - основной skill `onec-context`
-- дополнительный supplemental skill `onec-platform-cli` с картой по `1cv8`, `CREATEINFOBASE`, `ibcmd`, `ibsrv`, `ragent`, `rac`, `ras`
+- supplemental skill `onec-platform-cli` для `1cv8`, `CREATEINFOBASE`, `ibcmd`, `ibsrv`, `ragent`, `rac`, `ras`
+- supplemental skill `onec-query-strategy` для cheapest-first route по `platform -> metadata -> code -> full`
+- supplemental skill `onec-explain-object` для вопросов вида "как реквизит, флаг, форма или команда влияют на поведение"
+- supplemental skill `onec-platform-fact-check` для проверки platform API и language facts по локальному help pack
 
 Если нужен unix convenience wrapper:
 
@@ -81,6 +84,27 @@ python scripts/bootstrap.py --deps-only
 ```
 
 Этот шаг ставит локальные Python-зависимости toolkit, включая `zstandard`.
+
+## Быстрый старт для агента
+
+Стартовый prompt, который сразу задаёт правильный маршрут работы:
+
+```text
+Работай с этой 1С-задачей через локальный onec-context toolkit.
+Сначала проверь workspace и при необходимости инициализируй его.
+Используй onec-query-strategy, чтобы идти по cheapest-first route: сначала platform или metadata, потом code только если без него нельзя ответить, и full только для raw source/XML.
+Если вопрос про объект, реквизит, форму, кнопку, флаг или влияние на поведение, используй onec-explain-object.
+Если утверждаешь что-то про платформенный API, синтаксис языка, виды модулей или стандартные методы, сначала проверь это через onec-platform-fact-check.
+Если target'ов несколько, выбери нужную конфигурацию по имени и версии или один раз уточни у меня.
+В ответе разделяй подтверждённые факты, выводы по коду и непроверенные предположения.
+```
+
+Если известны входные параметры, их лучше дописать сразу:
+
+- путь к workspace
+- путь к source tree
+- версия платформы
+- нужно ли сразу достраивать `metadata` или `code`
 
 ## Инициализация workspace
 
@@ -206,3 +230,4 @@ python scripts/onec_context.py export --workspace-root /path/to/workspace --arch
 - `metadata XML export` — optional fallback или verification input, а не основной источник
 - exported bundle — read-only; rebuild выполняется только из source repo
 - installed agent skill — self-contained copy toolkit в skill directory агента; он не зависит от отдельного home-managed launcher
+- supplemental skills не меняют pack model; они только задают правильный query route, behavior tracing и platform fact-check discipline

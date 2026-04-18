@@ -1,0 +1,35 @@
+---
+name: onec-platform-fact-check
+description: Use this supplemental skill to verify 1C platform and language facts against the local platform help pack before asserting them.
+---
+
+# Onec Platform Fact Check
+
+This is a supplemental skill. Use it whenever you are about to assert something about:
+
+- built-in platform API
+- 1C language syntax
+- preprocessor directives
+- standard object methods and properties
+- module kinds or event-handler conventions
+
+## Core rules
+
+1. Treat a platform claim as unverified until it is checked against `packs.platform`.
+2. Align the answer with the exact platform version in the workspace.
+3. Distinguish platform knowledge from configuration-specific behavior.
+4. If the help pack does not confirm the claim, say that it is unverified instead of guessing.
+
+## Good lookup route
+
+- exact lookup by `Type.Method` or object name
+- if exact lookup fails, broaden to the closest platform term
+- only after that infer from neighboring help topics, and mark it as inference
+
+## Output rules
+
+- separate confirmed facts from inferences
+- name the platform version when it matters
+- avoid answering platform questions from configuration code unless the question is explicitly about how the project uses the API
+
+See also `reference.md` in this skill folder for the compact verification checklist.

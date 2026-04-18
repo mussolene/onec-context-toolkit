@@ -1,0 +1,30 @@
+# Onec Query Strategy Reference
+
+## Cheapest-first lookup table
+
+- Platform syntax/API question:
+  - `platform`
+- Configuration object, requisite, type, tabular section, form field, form command:
+  - `metadata`
+- Why object/flag/button influences behavior:
+  - `metadata -> code`
+- Exact source text or raw XML confirmation:
+  - `full`
+
+## Good escalation examples
+
+- `HTTPСоединение.Получить`
+  - start with `platform`
+- `Document.РеализацияТоваровУслуг.Товары.Номенклатура`
+  - start with `metadata`
+- `Как флаг УПД влияет на запись документа`
+  - `metadata` to identify the flag and forms
+  - `code` to find readers, writers, and handlers
+  - `full` only if the code index is insufficient
+
+## Anti-patterns
+
+- Do not build `code.pack` for every task by default.
+- Do not use `full` as the first lookup layer.
+- Do not answer platform questions from configuration packs if `platform` can answer them.
+- Do not mix results from multiple targets without naming the target.

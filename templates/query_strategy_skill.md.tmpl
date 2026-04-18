@@ -1,0 +1,42 @@
+---
+name: onec-query-strategy
+description: Use this supplemental skill to choose the cheapest and most reliable lookup route across platform help, metadata, code, and full packs.
+---
+
+# Onec Query Strategy
+
+This is a supplemental skill. Use it when the task is to answer a 1C development question with the local toolkit while keeping the route fast, exact, and explainable.
+
+## Core route
+
+1. Start with `onec-context status` and `resolve-packs`; do not guess pack paths.
+2. Prefer the cheapest exact source that can answer the question.
+3. Escalate only when the current layer cannot answer the question.
+4. If multiple targets exist, choose the target first and keep using it consistently.
+
+## Layer order
+
+- `packs.platform`
+  - platform language, syntax, built-in API, standard object methods, preprocessor, module kinds
+- `packs.metadata`
+  - configuration objects, requisites, tabular sections, form requisites, form commands, types
+- `packs.code`
+  - procedures, functions, modules, callers, callees, logic-level influence
+- `packs.full`
+  - exact file bytes, raw XML/forms/modules, final confirmation when higher layers are insufficient
+
+## Escalation rules
+
+- If the question is about platform facts, method signatures, or language syntax, start with `platform`.
+- If the question is about object structure, requisites, types, tabular sections, or forms, start with `metadata`.
+- If the question is about behavior, influence, handlers, or call chains, use `metadata` first to locate the object and then add `code` only if needed.
+- Use `full` only when you need exact file content, raw XML, or source text that is not represented well enough in `metadata` or `code`.
+
+## Output rules
+
+- Prefer exact answers over broad summaries.
+- Name which layer produced the answer.
+- If the answer depends on a specific target, say which target was used.
+- If a layer did not confirm the claim, say so and escalate or stop instead of guessing.
+
+See also `reference.md` in this skill folder for the condensed decision table.

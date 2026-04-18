@@ -1,0 +1,13 @@
+---
+description: 1C query routing across platform, metadata, code, and full packs
+globs:
+alwaysApply: false
+---
+
+- Start with `python {skill_rel_root}/scripts/onec_context.py status --workspace-root . --strict` and `resolve-packs`; do not guess pack filenames.
+- Prefer the cheapest exact layer first:
+  - `platform` for platform syntax and built-in API
+  - `metadata` for objects, requisites, types, tabular sections, forms, and commands
+  - `code` only when behavior, callers, handlers, or influence must be traced
+  - `full` only for raw XML or exact source reads
+- If multiple targets exist, choose the right target by name and version before querying.

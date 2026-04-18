@@ -1,0 +1,26 @@
+# Onec Explain Object Reference
+
+## Tracing checklist
+
+1. Confirm the target configuration or extension.
+2. Find the object in `metadata`.
+3. Find related requisites, tabular sections, forms, commands, and types.
+4. If the answer needs behavior:
+   - ensure `code`
+   - find matching modules and symbols
+   - inspect readers, writers, callers, and handlers
+5. If the answer still depends on raw source or XML:
+   - escalate to `full`
+
+## Typical question shapes
+
+- `Что делает реквизит ...`
+- `Как кнопка ... связана с обработчиком`
+- `Как флаг ... влияет на запись`
+- `Где используется форма ...`
+
+## Common distinction mistakes
+
+- UI visibility is not the same as business logic.
+- Status or print changes are not the same as posting changes.
+- Presence of a requisite in metadata does not prove it is read in code.

@@ -1,0 +1,49 @@
+---
+name: onec-explain-object
+description: Use this supplemental skill when explaining how a 1C object, flag, requisite, form field, button, or command affects behavior.
+---
+
+# Onec Explain Object
+
+This is a supplemental skill. Use it for questions such as:
+
+- what a flag or requisite changes
+- how a form button is wired
+- how a document, form, or command behaves
+- where an object is read, written, or handled
+
+## Working method
+
+1. Identify the target configuration or extension first.
+2. Resolve packs with `onec-context resolve-packs`.
+3. Start from `metadata`:
+   - identify the object
+   - identify requisites, types, tabular sections, forms, and form commands
+4. If the question is about behavior, ensure `code` and trace:
+   - where the symbol is declared
+   - where the object/requisite is read
+   - where it is written
+   - which procedures call the relevant code
+5. Use `full` only when raw source text or exact XML is required to finish the trace.
+
+## Answer shape
+
+- direct effect
+- indirect effect
+- where in the lifecycle it happens: form, write, post, print, exchange, validation
+- evidence:
+  - target
+  - pack layer
+  - module or object names
+
+## Guardrails
+
+- Do not jump straight into `full` unless higher layers failed.
+- Do not claim that a flag affects posting if you only proved that it affects UI or print.
+- Distinguish:
+  - structure
+  - handlers
+  - business logic
+  - print/EDI/status side effects
+
+See also `reference.md` in this skill folder for the condensed tracing checklist.
