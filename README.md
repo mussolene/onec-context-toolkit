@@ -1,15 +1,29 @@
 # Onec Context Toolkit
 
-`onec-context-toolkit` — source-first toolkit для локального 1С context и agent integration.
+`onec-context-toolkit` — локальный source-first toolkit для 1С.
 
-Репозиторий нужен для того, чтобы:
+Он нужен для трёх вещей:
 
 - поставить integration layer в `Codex`, `Claude`, `Cursor`
-- инициализировать конкретный workspace в `.onec/`
-- собрать локальные packs из `ConfigDump`, `HBK` и optional `metadata XML export`
-- экспортировать готовый runtime bundle
+- собрать локальный context workspace в `.onec/` из `ConfigDump`, `HBK` и optional `metadata XML export`
+- экспортировать готовый read-only runtime bundle
 
-Operational workflow, архитектурные правила и agent/developer playbook вынесены в [AGENTS.md](<repo-root>/AGENTS.md).
+Agent/developer workflow, архитектурные правила и operational playbook вынесены в [AGENTS.md](<repo-root>/AGENTS.md).
+
+## Что нужно заранее
+
+Минимально:
+
+- Python `3.11+`
+- `zstd`
+- папка `ConfigDump` или другая поддерживаемая source tree
+- доступ к `HBK`, если нужен базовый language/API слой платформы
+
+Проверить prerequisites можно так:
+
+```bash
+python scripts/doctor.py --workspace-init --hbk-base /opt/1cv8
+```
 
 ## Быстрый старт
 
@@ -25,6 +39,8 @@ Toolkit ставится в managed user-level окружение.
   - launcher'ы: `%LOCALAPPDATA%\\onec-context-toolkit\\bin\\onec-context.cmd`, `%LOCALAPPDATA%\\onec-context-toolkit\\bin\\onec-bootstrap.cmd`, `%LOCALAPPDATA%\\onec-context-toolkit\\bin\\onec-install-agent.cmd`
 
 Это значит, что после bootstrap agent integration не зависит от текущего пути checkout'а репозитория.
+
+Если launcher directory не находится в `PATH`, вызывайте bootstrap/install напрямую через `python scripts/...` или добавьте этот каталог в `PATH`.
 
 ## Установка
 
@@ -62,7 +78,7 @@ onec-install-agent --agent codex
 
 ## Инициализация workspace
 
-Базовый слой:
+Рекомендуемый первый шаг — собрать только базовый слой `help`:
 
 ```bash
 onec-context init \
@@ -73,37 +89,12 @@ onec-context init \
   --platform 8.2.19.130
 ```
 
-Metadata layer:
+После этого дополнительные слои лучше достраивать по мере необходимости:
 
 ```bash
-onec-context init \
-  --workspace-root /path/to/workspace \
-  --source-path /path/to/source \
-  --profile metadata \
-  --hbk-base /opt/1cv8 \
-  --platform 8.2.19.130
-```
-
-Code layer:
-
-```bash
-onec-context init \
-  --workspace-root /path/to/workspace \
-  --source-path /path/to/source \
-  --profile dev \
-  --hbk-base /opt/1cv8 \
-  --platform 8.2.19.130
-```
-
-Full layer:
-
-```bash
-onec-context init \
-  --workspace-root /path/to/workspace \
-  --source-path /path/to/source \
-  --profile full \
-  --hbk-base /opt/1cv8 \
-  --platform 8.2.19.130
+onec-context ensure --workspace-root /path/to/workspace --need metadata
+onec-context ensure --workspace-root /path/to/workspace --need code
+onec-context ensure --workspace-root /path/to/workspace --need full
 ```
 
 Для расширения с несколькими возможными базовыми конфигурациями:
@@ -132,12 +123,6 @@ onec-context init \
 
 ## Основные пользовательские команды
 
-Проверить prerequisites:
-
-```bash
-onec-context doctor --workspace-init --hbk-base /opt/1cv8
-```
-
 Проверить статус workspace:
 
 ```bash
@@ -157,6 +142,8 @@ onec-context ensure --workspace-root /path/to/workspace --need full
 ```bash
 onec-context resolve-packs --workspace-root /path/to/workspace
 ```
+
+Если в source tree несколько `Configuration.xml`, toolkit соберёт несколько target'ов. В этом случае дальше нужно выбрать нужный `target` по имени и версии.
 
 Проверить качество собранных packs:
 
@@ -206,3 +193,9 @@ onec-context export --workspace-root /path/to/workspace --archive
 1. source repo как основной канал
 2. optional exported bundle как transfer artifact
 3. packs строятся локально в workspace или публикуются отдельными release assets
+
+## Что важно помнить
+
+- `HBK` — обязательный базовый слой для platform language/API knowledge
+- `metadata XML export` — optional fallback или verification input, а не основной источник
+- exported bundle — read-only; rebuild выполняется только из source repo

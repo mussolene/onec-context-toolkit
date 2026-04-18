@@ -1,6 +1,6 @@
 # AGENTS
 
-Этот файл описывает agent/developer workflow для `onec-context-toolkit`.
+Этот файл описывает operational workflow для агентов и разработчиков.
 
 ## Назначение
 
@@ -52,7 +52,7 @@ Optional route:
 - verification layer для спорных мест
 - дополнительный источник для уточнения реквизитов и типов
 
-## Слои по умолчанию
+## Слои
 
 Базовый обязательный слой:
 
@@ -76,7 +76,8 @@ Optional route:
    - `onec-context ensure --workspace-root <repo> --need metadata|code|full`
 4. Разрешить точные pack paths:
    - `onec-context resolve-packs --workspace-root <repo>`
-5. Делать query/verify/export только после этого
+5. Если `resolve-packs` возвращает несколько target'ов, выбрать нужный target по имени и версии
+6. Делать query/verify/export только после этого
 
 `status` сравнивает текущий source snapshot и pack manifests и показывает, что нужно пересобрать.
 
@@ -128,6 +129,8 @@ onec-context resolve-packs --workspace-root /path/to/workspace --role platform -
 onec-context resolve-packs --workspace-root /path/to/workspace --role metadata --all-targets
 ```
 
+При нескольких target'ах не хардкодить первый попавшийся pack. Нужно либо выбрать target осознанно, либо попросить пользователя уточнить, с какой конфигурацией работать.
+
 Metadata query:
 
 ```bash
@@ -160,9 +163,9 @@ onec-context verify --workspace-root /path/to/workspace
 onec-context benchmark --workspace-root /path/to/workspace --loops 3
 ```
 
-## Что внутри репозитория
+## Карта репозитория
 
-- `bin/onec-context` — CLI entrypoint для repo-local use
+- `bin/onec-context` — repo-local CLI entrypoint
 - `scripts/init_workspace.py` — source-first init
 - `scripts/status_workspace.py` — drift/status check
 - `scripts/install_agent.py` — integration install
@@ -173,17 +176,6 @@ onec-context benchmark --workspace-root /path/to/workspace --loops 3
 - `src/onec_help/metadata_index/` — source-driven metadata parsing from `ConfigDump`
 - `tools/` — runtime query/verify/benchmark tools
 - `templates/` — templates для agent installs и bundle docs
-
-## Практические выводы
-
-- Один универсальный skill проще, чем много skill-per-config
-- Packs должны быть project-bound, а не repo-global
-- `HBK` должен быть обязательным базовым слоем
-- `metadata` и `code.pack` лучше собирать lazy
-- `ConfigDump` должен быть основным источником для metadata и code
-- `metadata XML export` лучше оставлять optional fallback/verification
-- Для version drift нужен штатный `status`, а не ручная догадка
-- Самая тяжёлая часть первого старта — `code.pack`, поэтому она не должна быть дефолтом
 
 ## Полный rebuild одного workspace
 

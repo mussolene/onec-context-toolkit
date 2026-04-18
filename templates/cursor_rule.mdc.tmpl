@@ -13,6 +13,7 @@ alwaysApply: false
 - Prefer `packs.platform` for platform language and API knowledge.
 - Build/use `targets.<source-identity>.packs.code` only when module, symbol, caller, and callee lookup are required via `{entrypoint} ensure --workspace-root . --need code`.
 - Use `targets.<source-identity>.packs.full` only when exact file bytes are needed.
+- If several targets exist, choose the correct one by config name/version before querying.
 - metadata XML export is optional fallback or verification input, not the primary source.
 - The tool repo lives at `{repo_root}`.
 - If source version or platform version changes, rerun `status` and rebuild stale packs.

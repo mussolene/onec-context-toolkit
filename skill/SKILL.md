@@ -18,10 +18,11 @@ Use this bundle when:
 ## Runtime order
 
 1. Resolve exact artifact paths with `python3 tools/resolve_packs.py --bundle-dir .`; do not hardcode filenames.
-2. Prefer `targets.<source-identity>.packs.metadata` for metadata questions when it is present.
-3. Prefer `targets.<source-identity>.packs.code` for symbol and call graph questions when it is present.
-4. Use `targets.<source-identity>.packs.full` only when exact source bytes or full file reads are required.
-5. Use `packs.platform` only for platform help/API lookup.
+2. If multiple targets are present, choose the correct one by name/version before querying.
+3. Prefer `targets.<source-identity>.packs.metadata` for metadata questions when it is present.
+4. Prefer `targets.<source-identity>.packs.code` for symbol and call graph questions when it is present.
+5. Use `targets.<source-identity>.packs.full` only when exact source bytes or full file reads are required.
+6. Use `packs.platform` only for platform help/API lookup.
 
 ## Practical commands
 
@@ -43,5 +44,6 @@ python3 tools/resolve_packs.py --bundle-dir .
 - This bundle is read-only.
 - It does not rebuild packs itself.
 - If a required artifact is missing, state that explicitly.
+- If several targets exist and the correct one is unclear, ask which configuration or extension should be used.
 - `targets.*.packs.metadata`, `targets.*.packs.code`, and `targets.*.packs.full` may be absent in minimal bundles.
 - `metadata XML export` is optional and may be absent from the bundle.

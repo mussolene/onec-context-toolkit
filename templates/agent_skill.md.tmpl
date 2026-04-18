@@ -27,6 +27,7 @@ Primary entrypoint: `{entrypoint}`
 6. Prefer `packs.platform` for platform language and API knowledge.
 7. If code analysis is required and `code.pack` is absent, run `{entrypoint} ensure --workspace-root <repo> --need code`.
 8. Use `targets.<source-identity>.packs.full` only when exact file bytes or full source reads are required; build it with `{entrypoint} ensure --workspace-root <repo> --need full`.
+9. If multiple targets exist, choose the right target by config name/version before querying. If that is unclear from the repo, ask the user once and then keep using that target consistently.
 
 ## Practical commands
 
