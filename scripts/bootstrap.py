@@ -5,13 +5,16 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_VENV = REPO_ROOT / ".venv"
+DEFAULT_VENV = Path.home().expanduser().resolve() / ".local" / "share" / "onec-context-toolkit" / "venv"
+DEFAULT_TOOL_HOME = DEFAULT_VENV.parent
+DEFAULT_BIN_DIR = Path.home().expanduser().resolve() / ".local" / "bin"
 
 
 def _run(cmd: list[str]) -> None:
@@ -30,14 +33,42 @@ def ensure_venv(venv_dir: Path) -> Path:
     return python_bin
 
 
-def ensure_editable_install(python_bin: Path) -> None:
-    _run([str(python_bin), "-m", "pip", "install", "-e", str(REPO_ROOT)])
+def ensure_managed_install(python_bin: Path) -> None:
+    _run([str(python_bin), "-m", "pip", "install", "--upgrade", "pip"])
+    _run([str(python_bin), "-m", "pip", "install", str(REPO_ROOT)])
+
+
+def _write_launcher(path: Path, target: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        "#!/usr/bin/env bash\n"
+        "set -euo pipefail\n"
+        f"exec {json.dumps(str(target))} \"$@\"\n",
+        encoding="utf-8",
+    )
+    path.chmod(0o755)
+
+
+def ensure_launchers(venv_dir: Path, bin_dir: Path) -> dict[str, str]:
+    launchers = {
+        "onec-context": (venv_dir / "bin" / "onec-context"),
+        "onec-bootstrap": (venv_dir / "bin" / "onec-bootstrap"),
+    }
+    result: dict[str, str] = {}
+    for name, target in launchers.items():
+        if not target.is_file():
+            raise FileNotFoundError(f"installed launcher is missing: {target}")
+        launcher_path = bin_dir / name
+        _write_launcher(launcher_path, target)
+        result[name] = str(launcher_path)
+    return result
 
 
 def bootstrap(args: argparse.Namespace) -> dict[str, object]:
     venv_dir = Path(args.venv_dir).expanduser().resolve()
     python_bin = ensure_venv(venv_dir)
-    ensure_editable_install(python_bin)
+    ensure_managed_install(python_bin)
+    launcher_paths = ensure_launchers(venv_dir, Path(args.bin_dir).expanduser().resolve())
     doctor_cmd = [str(python_bin), str(REPO_ROOT / "scripts" / "doctor.py")]
     if args.workspace_root:
         doctor_cmd.append("--workspace-init")
@@ -49,6 +80,8 @@ def bootstrap(args: argparse.Namespace) -> dict[str, object]:
         "repo_root": str(REPO_ROOT),
         "venv_dir": str(venv_dir),
         "python_bin": str(python_bin),
+        "tool_home": str(Path(args.tool_home).expanduser().resolve()),
+        "launchers": launcher_paths,
         "agent": None,
         "workspace_root": None,
         "profile": args.profile,
@@ -65,6 +98,8 @@ def bootstrap(args: argparse.Namespace) -> dict[str, object]:
             install_cmd.extend(["--skill-name", args.skill_name])
         if args.workspace:
             install_cmd.extend(["--workspace", args.workspace])
+        install_cmd.extend(["--entrypoint", launcher_paths["onec-context"]])
+        install_cmd.extend(["--tool-home", str(Path(args.tool_home).expanduser().resolve())])
         _run(install_cmd)
         result["agent"] = args.agent
 
@@ -105,7 +140,9 @@ def bootstrap(args: argparse.Namespace) -> dict[str, object]:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Bootstrap local toolkit, install an agent skill, and optionally initialize a workspace")
-    parser.add_argument("--venv-dir", default=str(DEFAULT_VENV), help="Repository-local virtualenv directory")
+    parser.add_argument("--venv-dir", default=str(DEFAULT_VENV), help="Managed virtualenv directory for stable launcher-based installs")
+    parser.add_argument("--bin-dir", default=str(DEFAULT_BIN_DIR), help="Directory for stable user-level launcher scripts")
+    parser.add_argument("--tool-home", default=str(DEFAULT_TOOL_HOME), help="Stable toolkit home shown in installed agent instructions")
     parser.add_argument("--agent", choices=["codex", "claude", "cursor"], help="Optional agent integration to install")
     parser.add_argument("--skill-name", default="onec-context", help="Skill name for Codex/Claude")
     parser.add_argument("--workspace", default=".", help="Cursor workspace target when --agent cursor is used")

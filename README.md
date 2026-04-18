@@ -74,13 +74,20 @@ Optional route:
 
 ## Быстрый старт
 
-Установка Python deps:
+Toolkit ставится в managed user-level окружение:
+
+- virtualenv по умолчанию: `~/.local/share/onec-context-toolkit/venv`
+- стабильные launcher'ы: `~/.local/bin/onec-context` и `~/.local/bin/onec-bootstrap`
+
+Это значит, что после bootstrap agent integration больше не зависит от текущего пути checkout'а репозитория. Repo можно переносить или переклонировать без переустановки skill.
+
+Локальная разработка из repo по-прежнему возможна через:
 
 ```bash
 python3 -m pip install -e .
 ```
 
-или полностью через bootstrap:
+Но для нормальной пользовательской установки и agent integration правильный путь такой:
 
 ```bash
 bin/onec-bootstrap
@@ -111,6 +118,8 @@ bin/onec-bootstrap \
 ./install/install_claude.sh
 ./install/install_cursor.sh --workspace /path/to/workspace
 ```
+
+Эти install-скрипты используют managed launcher, а не путь к текущему checkout.
 
 Инициализировать workspace из `ConfigDump`:
 

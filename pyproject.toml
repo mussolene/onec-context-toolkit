@@ -16,5 +16,18 @@ dependencies = [
     "zstandard>=0.23",
 ]
 
+[project.scripts]
+onec-context = "scripts.onec_context:main"
+onec-bootstrap = "scripts.bootstrap:main"
+
+[tool.setuptools]
+include-package-data = true
+
 [tool.setuptools.packages.find]
-where = ["src"]
+where = ["src", "."]
+include = ["onec_help*", "scripts*", "tools*", "templates*", "skill*"]
+
+[tool.setuptools.package-data]
+templates = ["*.tmpl"]
+skill = ["SKILL.md"]
+tools = ["1c/*"]
