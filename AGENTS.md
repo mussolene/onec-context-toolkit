@@ -34,6 +34,18 @@ Toolkit работает как source-first слой локального 1С c
   - `.onec/workspace.manifest.json`
   - хранит source-kind, base configs, versions, built packs, optional sources
 
+## Граница знаний
+
+Этот репозиторий не должен превращаться в общую энциклопедию по 1С.
+
+Правило такое:
+
+- `onec-context` отвечает за workspace lifecycle, packs, local query/runtime flow и source-first toolkit behavior
+- platform CLI, headless build, cluster/standalone administration и похожие темы можно подключать только как supplemental knowledge layer
+- supplemental layer допустим только если он напрямую помогает build/init/export/headless/admin сценариям этого toolkit
+- не смешивать supplemental platform knowledge с pack model, metadata/code/full runtime contract и базовым `onec-context` skill
+- не переносить сюда соседние знания "на всякий случай"; сначала проверить, поддерживают ли они реальные use cases этого repo
+
 ## Источники и pack'и
 
 Primary route:
