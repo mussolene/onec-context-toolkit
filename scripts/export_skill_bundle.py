@@ -13,6 +13,11 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_BUNDLE_NAME = "onec-context-skill-bundle"
 TEMPLATES_DIR = REPO_ROOT / "templates"
+SUPPLEMENTAL_REFERENCES = (
+    ("query_strategy_reference.md.tmpl", "references/query-strategy.md"),
+    ("explain_object_reference.md.tmpl", "references/explain-object.md"),
+    ("platform_fact_check_reference.md.tmpl", "references/platform-fact-check.md"),
+)
 
 
 def _copy(src: Path, dst: Path) -> None:
@@ -35,6 +40,32 @@ def _load_workspace_manifest(workspace_root: Path) -> dict:
     if not manifest_path.is_file():
         raise FileNotFoundError(f"workspace manifest is missing: {manifest_path}")
     return json.loads(manifest_path.read_text(encoding="utf-8"))
+
+
+def _workspace_label(workspace_root: Path) -> str:
+    return workspace_root.name or str(workspace_root)
+
+
+def _sanitize_source_snapshot(snapshot: object) -> dict[str, object] | None:
+    if not isinstance(snapshot, dict):
+        return None
+    out = {
+        "source_kind": snapshot.get("source_kind"),
+        "config_name": snapshot.get("config_name"),
+        "config_version": snapshot.get("config_version"),
+    }
+    return {key: value for key, value in out.items() if value is not None}
+
+
+def _bundle_source_summary(manifest: dict, workspace_root: Path) -> dict[str, object]:
+    return {
+        "workspace_label": _workspace_label(workspace_root),
+        "source_kind": manifest.get("source_kind"),
+        "source_layout": manifest.get("source_layout"),
+        "profile": manifest.get("profile"),
+        "requested_platforms": list(manifest.get("requested_platforms") or []),
+        "base_configs": list(manifest.get("base_configs") or []),
+    }
 
 
 def _iter_manifest_packs(manifest: dict) -> list[tuple[str | None, str, Path]]:
@@ -85,10 +116,13 @@ def export_bundle(workspace_root: Path, output_dir: Path, bundle_name: str) -> P
         if not src.is_file():
             raise FileNotFoundError(f"required bundle file is missing: {src}")
         _copy(src, dst)
+    for template_name, rel_dst in SUPPLEMENTAL_REFERENCES:
+        _write(bundle_root / rel_dst, _render_template(template_name))
 
     copied_files: list[str] = []
     copied_packs: dict[str, str] = {}
     copied_targets: dict[str, dict[str, object]] = {}
+    targets = manifest.get("targets") or {}
     for target_name, pack_name, pack_path in _iter_manifest_packs(manifest):
         if not pack_path.is_file():
             raise FileNotFoundError(f"workspace pack is missing: {pack_path}")
@@ -103,8 +137,16 @@ def export_bundle(workspace_root: Path, output_dir: Path, bundle_name: str) -> P
         if target_name is None:
             copied_packs[str(pack_name)] = rel_pack
         else:
-            copied_targets.setdefault(str(target_name), {"packs": {}})
-            target_packs = copied_targets[str(target_name)]["packs"]
+            original_target = targets.get(target_name) if isinstance(targets, dict) else {}
+            sanitized_target = copied_targets.setdefault(
+                str(target_name),
+                {
+                    "source_kind": (original_target or {}).get("source_kind") if isinstance(original_target, dict) else None,
+                    "source_snapshot": _sanitize_source_snapshot((original_target or {}).get("source_snapshot")),
+                    "packs": {},
+                },
+            )
+            target_packs = sanitized_target["packs"]
             assert isinstance(target_packs, dict)
             target_packs[str(pack_name)] = rel_pack
         copied_files.extend(
@@ -117,8 +159,7 @@ def export_bundle(workspace_root: Path, output_dir: Path, bundle_name: str) -> P
     bundle_manifest = {
         "format": "onec_skill_bundle_v1",
         "name": bundle_name,
-        "workspace_root": str(workspace_root),
-        "source_workspace_manifest": manifest,
+        "source_workspace": _bundle_source_summary(manifest, workspace_root),
         "packs": copied_packs,
         "targets": copied_targets,
         "files": copied_files,
@@ -128,7 +169,7 @@ def export_bundle(workspace_root: Path, output_dir: Path, bundle_name: str) -> P
         bundle_root / "README.md",
         _render_template(
             "bundle_readme.md.tmpl",
-            workspace_root=str(workspace_root),
+            workspace_label=_workspace_label(workspace_root),
             source_kind=str(manifest.get("source_kind") or "unknown"),
         ),
     )

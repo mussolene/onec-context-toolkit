@@ -7,7 +7,9 @@ alwaysApply: false
 - Use the bundled toolkit skill in `{skill_rel_root}`.
 - When working with a 1C repository, initialize local packs if `.onec/workspace.manifest.json` is missing or stale:
   - `python {skill_rel_root}/scripts/onec_context.py status --workspace-root . --strict`
-  - `python {skill_rel_root}/scripts/onec_context.py init --workspace-root . --source-path . --profile base`
+  - determine `HBK_ROOT` from the existing manifest only when that directory still exists, otherwise from `ONEC_HBK_BASE` or `/opt/1cv8`; it may point to the platform root, an exact version dir, or its `bin/`; if none is available, ask once
+  - `python {skill_rel_root}/scripts/onec_context.py init --workspace-root . --source-path . --profile base --hbk-base <HBK_ROOT>`
+  - when the exact platform version is known, add `--platform <VERSION>` so platform help lookup stays version-exact
 - Resolve exact pack paths with `python {skill_rel_root}/scripts/onec_context.py resolve-packs --workspace-root .`; do not hardcode filenames.
 - Treat `packs.platform` as the mandatory base layer.
 - Build metadata only when needed via `python {skill_rel_root}/scripts/onec_context.py ensure --workspace-root . --need metadata`.

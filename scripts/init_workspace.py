@@ -359,7 +359,7 @@ def main() -> int:
     )
     parser.add_argument("--base-config", action="append", default=[], help="Possible base configuration IDs/names for an extension workspace.")
     parser.add_argument("--metadata-source", default=None, help="Optional metadata XML export XML dir/file for fallback or verification.")
-    parser.add_argument("--hbk-base", default=None, help="Optional HBK root; defaults to env or /opt/1cv8 when available.")
+    parser.add_argument("--hbk-base", default=None, help="Optional HBK root; may point to a platform root, exact version dir, or version/bin dir. Defaults to env or /opt/1cv8 when available.")
     parser.add_argument("--platform", action="append", default=[], help="Optional platform versions to include when building help.")
     parser.add_argument("--without-help", action="store_true", help="Disable platform help even though it is part of the default base profile.")
     parser.add_argument("--with-metadata", action="store_true", help="Also build metadata on top of the selected profile.")

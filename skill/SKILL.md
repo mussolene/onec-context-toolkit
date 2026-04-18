@@ -23,6 +23,7 @@ Use this bundle when:
 4. Prefer `targets.<source-identity>.packs.code` for symbol and call graph questions when it is present.
 5. Use `targets.<source-identity>.packs.full` only when exact source bytes or full file reads are required.
 6. Use `packs.platform` only for platform help/API lookup.
+7. Separate confirmed facts from inferences when the available pack does not prove the full claim.
 
 ## Practical commands
 
@@ -34,6 +35,9 @@ python3 tools/resolve_packs.py --bundle-dir .
 ## Supplemental reference
 
 - For platform CLI, standalone server, cluster administration, `1cv8`, `CREATEINFOBASE`, `ibcmd`, `ibsrv`, `ragent`, `rac`, and `ras`, use `docs/1c-platform-cli.md` in this bundle as the compact reference layer.
+- For cheapest-first routing across `platform -> metadata -> code -> full`, use `references/query-strategy.md`.
+- For object and requisite behavior tracing, use `references/explain-object.md`.
+- For platform API and syntax verification, use `references/platform-fact-check.md`.
 
 ## Interpretation
 

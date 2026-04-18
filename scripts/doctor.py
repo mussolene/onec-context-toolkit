@@ -25,7 +25,7 @@ def _cmd_exists(name: str) -> bool:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Check host prerequisites for onec-context-toolkit")
     parser.add_argument("--workspace-init", action="store_true", help="Check tools needed for workspace initialization")
-    parser.add_argument("--hbk-base", default=None, help="Optional HBK root; when present, unpack helpers are also checked")
+    parser.add_argument("--hbk-base", default=None, help="Optional HBK root; may point to a platform root, exact version dir, or version/bin dir. When present, unpack helpers are also checked")
     args = parser.parse_args()
 
     issues: list[str] = []

@@ -30,7 +30,7 @@ SRC_DIR = REPO_ROOT / "src"
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
-from onec_help.zstd_compat import compress_path as zstd_compress_path
+from onec_help.zstd_compat import compress_path as zstd_compress_path  # noqa: E402
 
 
 HELP_JSONL_FILES: tuple[str, ...] = (
@@ -42,6 +42,7 @@ HELP_JSONL_FILES: tuple[str, ...] = (
 )
 
 LANG_PATTERN = re.compile(r"_([a-z]{2})\.hbk$", re.IGNORECASE)
+PLATFORM_VERSION_PATTERN = re.compile(r"^\d+(?:\.\d+){2,3}$")
 
 
 def _now_iso() -> str:
@@ -168,6 +169,54 @@ def _language_from_filename(name: str) -> str | None:
 
 def _hbk_label_from_stem(stem: str) -> str:
     return LANG_PATTERN.sub(".hbk", f"{stem}.hbk").rsplit(".", 1)[0]
+
+
+def _looks_like_platform_version(name: str) -> bool:
+    return bool(PLATFORM_VERSION_PATTERN.match((name or "").strip()))
+
+
+def _preferred_hbk_dir(path: Path) -> Path:
+    if path.name.lower() == "bin":
+        return path
+    bin_dir = path / "bin"
+    if bin_dir.is_dir():
+        return bin_dir
+    return path
+
+
+def _resolve_requested_hbk_sources(hbk_base: Path, versions: list[str]) -> list[tuple[str, str]]:
+    sources: list[tuple[str, str]] = []
+    for version in versions:
+        candidates = [
+            hbk_base / version,
+            hbk_base if hbk_base.name == version else None,
+            hbk_base if hbk_base.name.lower() == "bin" and hbk_base.parent.name == version else None,
+        ]
+        selected: Path | None = None
+        for candidate in candidates:
+            if candidate is None or not candidate.is_dir():
+                continue
+            selected = _preferred_hbk_dir(candidate)
+            break
+        if selected is not None:
+            sources.append((str(selected), version))
+    return sources
+
+
+def _discover_hbk_sources(hbk_base: Path) -> list[tuple[str, str]]:
+    if hbk_base.name.lower() == "bin" and _looks_like_platform_version(hbk_base.parent.name):
+        return [(str(hbk_base), hbk_base.parent.name)]
+    if _looks_like_platform_version(hbk_base.name):
+        return [(str(_preferred_hbk_dir(hbk_base)), hbk_base.name)]
+
+    discovered: list[tuple[str, str]] = []
+    for child, version in discover_version_dirs(str(hbk_base)):
+        if not _looks_like_platform_version(version):
+            continue
+        discovered.append((str(_preferred_hbk_dir(child)), version))
+    if discovered:
+        return discovered
+    return [(str(hbk_base), hbk_base.name or "default")]
 
 
 def _write_hbk_info(
@@ -444,21 +493,14 @@ def _resolve_help_jsonl_dir(args: argparse.Namespace) -> Path:
     jsonl_dir.mkdir(parents=True, exist_ok=True)
 
     if args.platform:
-        sources: list[tuple[str, str]] = []
-        for version in args.platform:
-            candidate = hbk_base / version
-            if candidate.is_dir():
-                sources.append((str(candidate), version))
+        sources = _resolve_requested_hbk_sources(hbk_base, list(args.platform))
         if not sources:
             raise FileNotFoundError(
                 "None of the requested platform versions were found under "
                 f"{hbk_base}: {', '.join(args.platform)}"
             )
     else:
-        discovered = discover_version_dirs(str(hbk_base))
-        sources = [(str(path), version) for path, version in discovered] or [
-            (str(hbk_base), hbk_base.name or "default")
-        ]
+        sources = _discover_hbk_sources(hbk_base)
     langs = parse_languages_env(args.languages)
 
     run_unpack_sync(
@@ -840,7 +882,7 @@ def _parser() -> argparse.ArgumentParser:
             "--hbk-base",
             type=str,
             default=None,
-            help="Path to .hbk source dir (used when help-jsonl-dir is not provided).",
+            help="Path to platform root, exact version dir, or version/bin dir with .hbk files (used when help-jsonl-dir is not provided).",
         )
         sp.add_argument(
             "--languages",

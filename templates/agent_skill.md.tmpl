@@ -24,10 +24,16 @@ Resolve all relative paths in this document from the skill root.
 
 ## Required loop
 
+0. If the workspace is not initialized yet, first determine the HBK root:
+   - use the existing workspace manifest only when `optional_sources.hbk_base` is present and the directory still exists
+   - otherwise use `ONEC_HBK_BASE` or `/opt/1cv8` when available
+   - `HBK_ROOT` may point to the platform root, an exact version directory, or that version's `bin/` directory
+   - if no HBK root is discoverable, ask the user once before running `init --profile base`
 1. Check the workspace first:
    - `python scripts/onec_context.py status --workspace-root <repo> --strict`
 2. If `.onec/workspace.manifest.json` is missing or stale, initialize or rebuild the workspace:
-   - `python scripts/onec_context.py init --workspace-root <repo> --source-path <repo-or-config-root>`
+   - `python scripts/onec_context.py init --workspace-root <repo> --source-path <repo-or-config-root> --profile base --hbk-base <HBK_ROOT>`
+   - add `--platform <VERSION>` when the platform version is known and version-exact help lookup matters
 3. Use `python scripts/onec_context.py resolve-packs --workspace-root <repo>` to get exact pack paths; do not hardcode pack filenames.
 4. The base workspace should always have `packs.platform`.
 5. If metadata is missing and the question needs requisites, types, tabular sections, or form metadata, run `python scripts/onec_context.py ensure --workspace-root <repo> --need metadata`.
@@ -41,7 +47,7 @@ Resolve all relative paths in this document from the skill root.
 ```bash
 python scripts/onec_context.py doctor --workspace-init --hbk-base /opt/1cv8
 python scripts/onec_context.py status --workspace-root . --strict
-python scripts/onec_context.py init --workspace-root . --source-path . --profile base
+python scripts/onec_context.py init --workspace-root . --source-path . --profile base --hbk-base /opt/1cv8
 python scripts/onec_context.py ensure --workspace-root . --need metadata
 python scripts/onec_context.py resolve-packs --workspace-root . --role platform --path-only
 # Use ensure --need code only when logic-level analysis is required

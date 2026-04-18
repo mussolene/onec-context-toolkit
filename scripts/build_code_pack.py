@@ -7,7 +7,6 @@ import argparse
 import hashlib
 import json
 import sqlite3
-import subprocess
 import sys
 import time
 from collections import Counter
@@ -19,8 +18,8 @@ SRC_DIR = REPO_ROOT / "src"
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
-from onec_help.code_index import BslParser, extract_calls, extract_symbols
-from onec_help.zstd_compat import compress_path as zstd_compress_path
+from onec_help.code_index import BslParser, extract_calls, extract_symbols  # noqa: E402
+from onec_help.zstd_compat import compress_path as zstd_compress_path  # noqa: E402
 
 
 def _now_iso() -> str:
