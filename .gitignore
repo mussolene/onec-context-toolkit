@@ -4,6 +4,9 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 .venv/
+.cursor/
+.claude/
+.codex/
 .repo/
 *.egg-info/
 build/
