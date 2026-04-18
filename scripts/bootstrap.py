@@ -12,9 +12,29 @@ from pathlib import Path
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_VENV = Path.home().expanduser().resolve() / ".local" / "share" / "onec-context-toolkit" / "venv"
-DEFAULT_TOOL_HOME = DEFAULT_VENV.parent
-DEFAULT_BIN_DIR = Path.home().expanduser().resolve() / ".local" / "bin"
+
+
+def _default_tool_home() -> Path:
+    home = Path.home().expanduser().resolve()
+    if os.name == "nt":
+        base = Path(
+            os.environ.get("LOCALAPPDATA")
+            or os.environ.get("APPDATA")
+            or str(home / "AppData" / "Local")
+        ).expanduser().resolve()
+        return base / "onec-context-toolkit"
+    return home / ".local" / "share" / "onec-context-toolkit"
+
+
+def _default_bin_dir(tool_home: Path) -> Path:
+    if os.name == "nt":
+        return tool_home / "bin"
+    return Path.home().expanduser().resolve() / ".local" / "bin"
+
+
+DEFAULT_TOOL_HOME = _default_tool_home()
+DEFAULT_VENV = DEFAULT_TOOL_HOME / "venv"
+DEFAULT_BIN_DIR = _default_bin_dir(DEFAULT_TOOL_HOME)
 
 
 def _run(cmd: list[str]) -> None:
@@ -22,6 +42,8 @@ def _run(cmd: list[str]) -> None:
 
 
 def _venv_python(venv_dir: Path) -> Path:
+    if os.name == "nt":
+        return venv_dir / "Scripts" / "python.exe"
     return venv_dir / "bin" / "python"
 
 
@@ -38,7 +60,7 @@ def ensure_managed_install(python_bin: Path) -> None:
     _run([str(python_bin), "-m", "pip", "install", str(REPO_ROOT)])
 
 
-def _write_launcher(path: Path, target: Path) -> None:
+def _write_posix_launcher(path: Path, target: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
         "#!/usr/bin/env bash\n"
@@ -49,17 +71,44 @@ def _write_launcher(path: Path, target: Path) -> None:
     path.chmod(0o755)
 
 
+def _write_windows_launcher(path: Path, target: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        "@echo off\r\n"
+        f"\"{target}\" %*\r\n",
+        encoding="utf-8",
+    )
+
+
+def _venv_command_path(venv_dir: Path, name: str) -> Path:
+    if os.name == "nt":
+        candidates = [
+            venv_dir / "Scripts" / f"{name}.exe",
+            venv_dir / "Scripts" / f"{name}.cmd",
+            venv_dir / "Scripts" / f"{name}-script.py",
+            venv_dir / "Scripts" / name,
+        ]
+    else:
+        candidates = [venv_dir / "bin" / name]
+    for candidate in candidates:
+        if candidate.is_file():
+            return candidate
+    raise FileNotFoundError(f"installed launcher is missing for {name}: {candidates}")
+
+
 def ensure_launchers(venv_dir: Path, bin_dir: Path) -> dict[str, str]:
     launchers = {
-        "onec-context": (venv_dir / "bin" / "onec-context"),
-        "onec-bootstrap": (venv_dir / "bin" / "onec-bootstrap"),
+        "onec-context": _venv_command_path(venv_dir, "onec-context"),
+        "onec-bootstrap": _venv_command_path(venv_dir, "onec-bootstrap"),
+        "onec-install-agent": _venv_command_path(venv_dir, "onec-install-agent"),
     }
     result: dict[str, str] = {}
     for name, target in launchers.items():
-        if not target.is_file():
-            raise FileNotFoundError(f"installed launcher is missing: {target}")
-        launcher_path = bin_dir / name
-        _write_launcher(launcher_path, target)
+        launcher_path = bin_dir / (f"{name}.cmd" if os.name == "nt" else name)
+        if os.name == "nt":
+            _write_windows_launcher(launcher_path, target)
+        else:
+            _write_posix_launcher(launcher_path, target)
         result[name] = str(launcher_path)
     return result
 

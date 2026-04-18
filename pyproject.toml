@@ -19,6 +19,7 @@ dependencies = [
 [project.scripts]
 onec-context = "scripts.onec_context:main"
 onec-bootstrap = "scripts.bootstrap:main"
+onec-install-agent = "scripts.install_agent:main"
 
 [tool.setuptools]
 include-package-data = true

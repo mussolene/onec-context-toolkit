@@ -76,8 +76,12 @@ Optional route:
 
 Toolkit ставится в managed user-level окружение:
 
-- virtualenv по умолчанию: `~/.local/share/onec-context-toolkit/venv`
-- стабильные launcher'ы: `~/.local/bin/onec-context` и `~/.local/bin/onec-bootstrap`
+- macOS / Linux:
+  - virtualenv по умолчанию: `~/.local/share/onec-context-toolkit/venv`
+  - стабильные launcher'ы: `~/.local/bin/onec-context`, `~/.local/bin/onec-bootstrap`, `~/.local/bin/onec-install-agent`
+- Windows:
+  - virtualenv по умолчанию: `%LOCALAPPDATA%\\onec-context-toolkit\\venv`
+  - стабильные launcher'ы: `%LOCALAPPDATA%\\onec-context-toolkit\\bin\\onec-context.cmd`, `%LOCALAPPDATA%\\onec-context-toolkit\\bin\\onec-bootstrap.cmd`, `%LOCALAPPDATA%\\onec-context-toolkit\\bin\\onec-install-agent.cmd`
 
 Это значит, что после bootstrap agent integration больше не зависит от текущего пути checkout'а репозитория. Repo можно переносить или переклонировать без переустановки skill.
 
@@ -93,10 +97,22 @@ python3 -m pip install -e .
 bin/onec-bootstrap
 ```
 
+Кроссплатформенный вариант без shell wrapper:
+
+```bash
+python scripts/bootstrap.py
+```
+
 Быстрый bootstrap для первого запуска:
 
 ```bash
 bin/onec-bootstrap --agent codex
+```
+
+Кроссплатформенно:
+
+```bash
+python scripts/bootstrap.py --agent codex
 ```
 
 или сразу с инициализацией workspace:
@@ -119,7 +135,21 @@ bin/onec-bootstrap \
 ./install/install_cursor.sh --workspace /path/to/workspace
 ```
 
-Эти install-скрипты используют managed launcher, а не путь к текущему checkout.
+Эти shell-скрипты являются unix convenience wrappers. Кроссплатформенный вариант:
+
+```bash
+python scripts/install_agent.py --agent codex
+python scripts/install_agent.py --agent claude
+python scripts/install_agent.py --agent cursor --workspace /path/to/workspace
+```
+
+После managed install можно использовать и installed entrypoint:
+
+```bash
+onec-install-agent --agent codex
+```
+
+Эти install-пути используют managed launcher, а не путь к текущему checkout.
 
 Инициализировать workspace из `ConfigDump`:
 

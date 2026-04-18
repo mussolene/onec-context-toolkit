@@ -11,8 +11,29 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 TEMPLATES_DIR = REPO_ROOT / "templates"
-DEFAULT_ENTRYPOINT = str(Path.home().expanduser().resolve() / ".local" / "bin" / "onec-context")
-DEFAULT_TOOL_HOME = str(Path.home().expanduser().resolve() / ".local" / "share" / "onec-context-toolkit")
+
+
+def _default_tool_home() -> Path:
+    home = Path.home().expanduser().resolve()
+    if os.name == "nt":
+        base = Path(
+            os.environ.get("LOCALAPPDATA")
+            or os.environ.get("APPDATA")
+            or str(home / "AppData" / "Local")
+        ).expanduser().resolve()
+        return base / "onec-context-toolkit"
+    return home / ".local" / "share" / "onec-context-toolkit"
+
+
+def _default_entrypoint() -> Path:
+    tool_home = _default_tool_home()
+    if os.name == "nt":
+        return tool_home / "bin" / "onec-context.cmd"
+    return Path.home().expanduser().resolve() / ".local" / "bin" / "onec-context"
+
+
+DEFAULT_ENTRYPOINT = str(_default_entrypoint())
+DEFAULT_TOOL_HOME = str(_default_tool_home())
 
 
 def _render_template(name: str, **values: str) -> str:
