@@ -20,6 +20,7 @@ if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
 from onec_help.code_index import BslParser, extract_calls, extract_symbols
+from onec_help.zstd_compat import compress_path as zstd_compress_path
 
 
 def _now_iso() -> str:
@@ -177,8 +178,7 @@ def _finalize_db(con: sqlite3.Connection) -> None:
 
 def _pack_zstd(src_db: Path, out_zst: Path) -> int:
     _ensure_parent(out_zst)
-    subprocess.run(["zstd", "-q", "-19", "-f", str(src_db), "-o", str(out_zst)], check=True)
-    return out_zst.stat().st_size
+    return zstd_compress_path(src_db, out_zst, level=19)
 
 
 def build_pack(

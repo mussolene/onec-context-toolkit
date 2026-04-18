@@ -5,8 +5,15 @@ description: Use this skill when working with 1C source trees and you need a loc
 
 # Onec Context
 
-Tool home: `{repo_root}`
-Primary entrypoint: `{entrypoint}`
+This skill is self-contained.
+
+Primary entrypoint:
+
+- `scripts/onec_context.py`
+- Unix convenience wrapper: `bin/onec-context`
+
+If the local `.venv` is missing, `scripts/onec_context.py` bootstraps it automatically on first real command.
+Resolve all relative paths in this document from the skill root.
 
 ## When to use
 
@@ -18,25 +25,25 @@ Primary entrypoint: `{entrypoint}`
 ## Required loop
 
 1. Check the workspace first:
-   - `{entrypoint} status --workspace-root <repo> --strict`
+   - `python scripts/onec_context.py status --workspace-root <repo> --strict`
 2. If `.onec/workspace.manifest.json` is missing or stale, initialize or rebuild the workspace:
-   - `{entrypoint} init --workspace-root <repo> --source-path <repo-or-config-root>`
-3. Use `{entrypoint} resolve-packs --workspace-root <repo>` to get exact pack paths; do not hardcode pack filenames.
+   - `python scripts/onec_context.py init --workspace-root <repo> --source-path <repo-or-config-root>`
+3. Use `python scripts/onec_context.py resolve-packs --workspace-root <repo>` to get exact pack paths; do not hardcode pack filenames.
 4. The base workspace should always have `packs.platform`.
-5. If metadata is missing and the question needs requisites, types, tabular sections, or form metadata, run `{entrypoint} ensure --workspace-root <repo> --need metadata`.
+5. If metadata is missing and the question needs requisites, types, tabular sections, or form metadata, run `python scripts/onec_context.py ensure --workspace-root <repo> --need metadata`.
 6. Prefer `packs.platform` for platform language and API knowledge.
-7. If code analysis is required and `code.pack` is absent, run `{entrypoint} ensure --workspace-root <repo> --need code`.
-8. Use `targets.<source-identity>.packs.full` only when exact file bytes or full source reads are required; build it with `{entrypoint} ensure --workspace-root <repo> --need full`.
+7. If code analysis is required and `code.pack` is absent, run `python scripts/onec_context.py ensure --workspace-root <repo> --need code`.
+8. Use `targets.<source-identity>.packs.full` only when exact file bytes or full source reads are required; build it with `python scripts/onec_context.py ensure --workspace-root <repo> --need full`.
 9. If multiple targets exist, choose the right target by config name/version before querying. If that is unclear from the repo, ask the user once and then keep using that target consistently.
 
 ## Practical commands
 
 ```bash
-{entrypoint} doctor --workspace-init --hbk-base /opt/1cv8
-{entrypoint} status --workspace-root . --strict
-{entrypoint} init --workspace-root . --source-path . --profile base
-{entrypoint} ensure --workspace-root . --need metadata
-{entrypoint} resolve-packs --workspace-root . --role platform --path-only
+python scripts/onec_context.py doctor --workspace-init --hbk-base /opt/1cv8
+python scripts/onec_context.py status --workspace-root . --strict
+python scripts/onec_context.py init --workspace-root . --source-path . --profile base
+python scripts/onec_context.py ensure --workspace-root . --need metadata
+python scripts/onec_context.py resolve-packs --workspace-root . --role platform --path-only
 # Use ensure --need code only when logic-level analysis is required
 ```
 

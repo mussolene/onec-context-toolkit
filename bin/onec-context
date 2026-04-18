@@ -2,9 +2,4 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 export PYTHONPATH="$ROOT/src${PYTHONPATH:+:$PYTHONPATH}"
-if [[ -x "$ROOT/.venv/bin/python" ]]; then
-  PYTHON_BIN="$ROOT/.venv/bin/python"
-else
-  PYTHON_BIN="python3"
-fi
-exec "$PYTHON_BIN" "$ROOT/scripts/onec_context.py" "$@"
+exec "${PYTHON:-python3}" "$ROOT/scripts/onec_context.py" "$@"

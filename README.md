@@ -16,9 +16,10 @@ Agent/developer workflow, архитектурные правила и operation
 Минимально:
 
 - Python `3.11+`
-- `zstd`
+- `zstandard` через локальное Python-окружение toolkit или `zstd` CLI как fallback
 - папка `ConfigDump` или другая поддерживаемая source tree
 - доступ к `HBK` для стандартных профилей `base`, `metadata`, `dev`, `full`
+- `7z` или `unzip` только если они реально нужны для распаковки `HBK`
 
 `HBK` не нужен только в явном нестандартном сценарии с `--without-help`.
 
@@ -30,33 +31,28 @@ python scripts/doctor.py --workspace-init --hbk-base /opt/1cv8
 
 ## Быстрый старт
 
-Toolkit ставится в managed user-level окружение.
+Есть два режима:
 
-По умолчанию:
+- source-repo mode: работаешь из checkout этого репозитория
+- installed skill mode: toolkit копируется прямо в skill directory агента и живёт там self-contained bundle
 
-- macOS / Linux:
-  - virtualenv: `~/.local/share/onec-context-toolkit/venv`
-  - launcher'ы: `~/.local/bin/onec-context`, `~/.local/bin/onec-bootstrap`, `~/.local/bin/onec-install-agent`
-- Windows:
-  - virtualenv: `%LOCALAPPDATA%\\onec-context-toolkit\\venv`
-  - launcher'ы: `%LOCALAPPDATA%\\onec-context-toolkit\\bin\\onec-context.cmd`, `%LOCALAPPDATA%\\onec-context-toolkit\\bin\\onec-bootstrap.cmd`, `%LOCALAPPDATA%\\onec-context-toolkit\\bin\\onec-install-agent.cmd`
+В обоих режимах локальное Python-окружение создаётся в корне самого toolkit:
 
-Это значит, что после bootstrap agent integration не зависит от текущего пути checkout'а репозитория.
-
-Если launcher directory не находится в `PATH`, вызывайте bootstrap/install напрямую через `python scripts/...` или добавьте этот каталог в `PATH`.
+- source repo: `.venv/` в checkout
+- installed skill: `.venv/` внутри installed skill directory
 
 ## Установка
 
 Основной путь:
 
 ```bash
-python scripts/bootstrap.py
+python scripts/install_agent.py --agent codex
 ```
 
 Быстрая установка вместе с Codex integration:
 
 ```bash
-python scripts/bootstrap.py --agent codex
+python scripts/install_agent.py --agent codex
 ```
 
 При установке integration toolkit ставит:
@@ -67,7 +63,7 @@ python scripts/bootstrap.py --agent codex
 Если нужен unix convenience wrapper:
 
 ```bash
-bin/onec-bootstrap --agent codex
+./install/install_codex.sh
 ```
 
 Отдельная установка integration:
@@ -78,18 +74,20 @@ python scripts/install_agent.py --agent claude
 python scripts/install_agent.py --agent cursor --workspace /path/to/workspace
 ```
 
-После managed install можно использовать stable launcher:
+Если нужно подготовить локальное Python-окружение в самом source repo:
 
 ```bash
-onec-install-agent --agent codex
+python scripts/bootstrap.py --deps-only
 ```
+
+Этот шаг ставит локальные Python-зависимости toolkit, включая `zstandard`.
 
 ## Инициализация workspace
 
 Рекомендуемый первый шаг — собрать только базовый слой `help`:
 
 ```bash
-onec-context init \
+python scripts/onec_context.py init \
   --workspace-root /path/to/workspace \
   --source-path /path/to/source \
   --profile base \
@@ -100,15 +98,15 @@ onec-context init \
 После этого дополнительные слои лучше достраивать по мере необходимости:
 
 ```bash
-onec-context ensure --workspace-root /path/to/workspace --need metadata
-onec-context ensure --workspace-root /path/to/workspace --need code
-onec-context ensure --workspace-root /path/to/workspace --need full
+python scripts/onec_context.py ensure --workspace-root /path/to/workspace --need metadata
+python scripts/onec_context.py ensure --workspace-root /path/to/workspace --need code
+python scripts/onec_context.py ensure --workspace-root /path/to/workspace --need full
 ```
 
 Для расширения с несколькими возможными базовыми конфигурациями:
 
 ```bash
-onec-context init \
+python scripts/onec_context.py init \
   --workspace-root /path/to/extension \
   --source-path /path/to/extension \
   --source-kind extension \
@@ -121,7 +119,7 @@ onec-context init \
 Если нужен metadata fallback:
 
 ```bash
-onec-context init \
+python scripts/onec_context.py init \
   --workspace-root /path/to/workspace \
   --source-path /path/to/workspace \
   --profile metadata \
@@ -134,21 +132,21 @@ onec-context init \
 Проверить статус workspace:
 
 ```bash
-onec-context status --workspace-root /path/to/workspace --strict
+python scripts/onec_context.py status --workspace-root /path/to/workspace --strict
 ```
 
 Достроить слой по мере необходимости:
 
 ```bash
-onec-context ensure --workspace-root /path/to/workspace --need metadata
-onec-context ensure --workspace-root /path/to/workspace --need code
-onec-context ensure --workspace-root /path/to/workspace --need full
+python scripts/onec_context.py ensure --workspace-root /path/to/workspace --need metadata
+python scripts/onec_context.py ensure --workspace-root /path/to/workspace --need code
+python scripts/onec_context.py ensure --workspace-root /path/to/workspace --need full
 ```
 
 Посмотреть target'ы и pack paths:
 
 ```bash
-onec-context resolve-packs --workspace-root /path/to/workspace
+python scripts/onec_context.py resolve-packs --workspace-root /path/to/workspace
 ```
 
 Если в source tree несколько `Configuration.xml`, toolkit соберёт несколько target'ов. В этом случае дальше нужно выбрать нужный `target` по имени и версии.
@@ -156,14 +154,14 @@ onec-context resolve-packs --workspace-root /path/to/workspace
 Проверить качество собранных packs:
 
 ```bash
-onec-context verify --workspace-root /path/to/workspace
-onec-context benchmark --workspace-root /path/to/workspace --loops 3
+python scripts/onec_context.py verify --workspace-root /path/to/workspace
+python scripts/onec_context.py benchmark --workspace-root /path/to/workspace --loops 3
 ```
 
 Экспортировать runtime bundle:
 
 ```bash
-onec-context export --workspace-root /path/to/workspace --archive
+python scripts/onec_context.py export --workspace-root /path/to/workspace --archive
 ```
 
 ## Что попадает в `.onec/`
@@ -207,3 +205,4 @@ onec-context export --workspace-root /path/to/workspace --archive
 - `HBK` — обязательный базовый слой для platform language/API knowledge
 - `metadata XML export` — optional fallback или verification input, а не основной источник
 - exported bundle — read-only; rebuild выполняется только из source repo
+- installed agent skill — self-contained copy toolkit в skill directory агента; он не зависит от отдельного home-managed launcher

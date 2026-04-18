@@ -23,3 +23,4 @@ python3 tools/resolve_packs.py --bundle-dir .
 - Этот bundle не пересобирает packs сам по себе; для rebuild нужен source repo.
 - Если в bundle несколько target'ов, сначала выбери нужный target по имени и версии.
 - `targets.*.packs.metadata`, `targets.*.packs.code`, и `targets.*.packs.full` могут отсутствовать в минимальном bundle.
+- Runtime этого bundle опирается в первую очередь на Python zstd backend, а не на внешний `zstd` CLI.

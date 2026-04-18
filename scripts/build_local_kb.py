@@ -30,6 +30,8 @@ SRC_DIR = REPO_ROOT / "src"
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
+from onec_help.zstd_compat import compress_path as zstd_compress_path
+
 
 HELP_JSONL_FILES: tuple[str, ...] = (
     "api_members.jsonl",
@@ -321,9 +323,7 @@ def _finalize_docs_db(con: sqlite3.Connection) -> None:
 
 def _pack_zstd(src_db: Path, out_zst: Path) -> int:
     _ensure_parent(out_zst)
-    cmd = ["zstd", "-q", "-19", "-f", str(src_db), "-o", str(out_zst)]
-    subprocess.run(cmd, check=True)
-    return out_zst.stat().st_size
+    return zstd_compress_path(src_db, out_zst, level=19)
 
 
 def _build_help_jsonl(

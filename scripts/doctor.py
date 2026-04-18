@@ -10,6 +10,14 @@ import sys
 from pathlib import Path
 
 
+REPO_ROOT = Path(__file__).resolve().parents[1]
+SRC_DIR = REPO_ROOT / "src"
+if str(SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(SRC_DIR))
+
+from onec_help.zstd_compat import has_python_backend  # noqa: E402
+
+
 def _cmd_exists(name: str) -> bool:
     return shutil.which(name) is not None
 
@@ -23,7 +31,8 @@ def main() -> int:
     issues: list[str] = []
     checks = {
         "python": sys.version_info >= (3, 11),
-        "zstd": _cmd_exists("zstd"),
+        "zstd_python_backend": has_python_backend(),
+        "zstd_cli": _cmd_exists("zstd"),
     }
     if args.workspace_init:
         hbk_required = bool(args.hbk_base) or Path("/opt/1cv8").is_dir()
@@ -34,8 +43,6 @@ def main() -> int:
 
     if not checks["python"]:
         issues.append("Python 3.11+ is required.")
-    if not checks["zstd"]:
-        issues.append("zstd CLI is required for pack build/query/export.")
 
     payload = {
         "ok": not issues,

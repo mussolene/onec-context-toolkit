@@ -19,7 +19,7 @@ Toolkit работает как source-first слой локального 1С c
 
 - `runtime/integration`
   - install scripts для `codex`, `claude`, `cursor`
-  - общий CLI `onec-context`
+  - общий CLI `scripts/onec_context.py`
 - `source adapters`
   - `ConfigDump` конфигурации
   - `ConfigDump` расширения
@@ -179,6 +179,7 @@ onec-context benchmark --workspace-root /path/to/workspace --loops 3
 ## Карта репозитория
 
 - `bin/onec-context` — repo-local CLI entrypoint
+- `scripts/onec_context.py` — универсальный Python entrypoint; при отсутствии локальной `.venv` сам запускает bootstrap
 - `docs/1c-platform-cli.md` — distilled reference по platform CLI и headless/server операциям 1С
 - `scripts/init_workspace.py` — source-first init
 - `scripts/status_workspace.py` — drift/status check

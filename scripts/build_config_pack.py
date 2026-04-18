@@ -21,6 +21,7 @@ if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
 from onec_help.zstd_compat import compress as zstd_compress  # noqa: E402
+from onec_help.zstd_compat import compress_path as zstd_compress_path  # noqa: E402
 from onec_help.zstd_compat import decompress as zstd_decompress  # noqa: E402
 
 
@@ -189,8 +190,7 @@ def _finalize_pack_db(con: sqlite3.Connection) -> None:
 
 def _pack_zstd(src_db: Path, out_zst: Path) -> int:
     _ensure_parent(out_zst)
-    subprocess.run(["zstd", "-q", "-19", "-f", str(src_db), "-o", str(out_zst)], check=True)
-    return out_zst.stat().st_size
+    return zstd_compress_path(src_db, out_zst, level=19)
 
 
 def _write_manifest(path: Path, payload: dict) -> None:

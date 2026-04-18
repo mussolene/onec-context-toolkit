@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import json
 import os
-import subprocess
 import tempfile
 from pathlib import Path
+
+from onec_help.zstd_compat import decompress_path
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -55,7 +56,7 @@ def extract_once(path: Path, out_path: Path) -> None:
     tmp_path = Path(tmp)
     tmp_path.unlink(missing_ok=True)
     try:
-        subprocess.run(["zstd", "-q", "-d", "-f", str(path), "-o", str(tmp_path)], check=True)
+        decompress_path(path, tmp_path)
         os.replace(tmp_path, out_path)
     finally:
         tmp_path.unlink(missing_ok=True)

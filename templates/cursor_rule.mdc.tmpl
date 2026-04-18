@@ -4,16 +4,16 @@ globs:
 alwaysApply: false
 ---
 
+- Use the bundled toolkit skill in `{skill_rel_root}`.
 - When working with a 1C repository, initialize local packs if `.onec/workspace.manifest.json` is missing or stale:
-  - `{entrypoint} status --workspace-root . --strict`
-  - `{entrypoint} init --workspace-root . --source-path . --profile base`
-- Resolve exact pack paths with `{entrypoint} resolve-packs --workspace-root .`; do not hardcode filenames.
+  - `python {skill_rel_root}/scripts/onec_context.py status --workspace-root . --strict`
+  - `python {skill_rel_root}/scripts/onec_context.py init --workspace-root . --source-path . --profile base`
+- Resolve exact pack paths with `python {skill_rel_root}/scripts/onec_context.py resolve-packs --workspace-root .`; do not hardcode filenames.
 - Treat `packs.platform` as the mandatory base layer.
-- Build metadata only when needed via `{entrypoint} ensure --workspace-root . --need metadata`.
+- Build metadata only when needed via `python {skill_rel_root}/scripts/onec_context.py ensure --workspace-root . --need metadata`.
 - Prefer `packs.platform` for platform language and API knowledge.
-- Build/use `targets.<source-identity>.packs.code` only when module, symbol, caller, and callee lookup are required via `{entrypoint} ensure --workspace-root . --need code`.
+- Build/use `targets.<source-identity>.packs.code` only when module, symbol, caller, and callee lookup are required via `python {skill_rel_root}/scripts/onec_context.py ensure --workspace-root . --need code`.
 - Use `targets.<source-identity>.packs.full` only when exact file bytes are needed.
 - If several targets exist, choose the correct one by config name/version before querying.
 - metadata XML export is optional fallback or verification input, not the primary source.
-- The tool repo lives at `{repo_root}`.
 - If source version or platform version changes, rerun `status` and rebuild stale packs.
