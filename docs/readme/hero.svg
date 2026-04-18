@@ -1,0 +1,109 @@
+<svg width="1200" height="700" viewBox="0 0 1200 700" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="84" y1="56" x2="1112" y2="644" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0B1220"/>
+      <stop offset="0.52" stop-color="#102A43"/>
+      <stop offset="1" stop-color="#0F766E"/>
+    </linearGradient>
+    <linearGradient id="panel" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#FFFFFF" stop-opacity="0.18"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0.06"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#F59E0B"/>
+      <stop offset="1" stop-color="#F97316"/>
+    </linearGradient>
+    <filter id="blur" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="34"/>
+    </filter>
+  </defs>
+
+  <rect x="24" y="24" width="1152" height="652" rx="36" fill="url(#bg)"/>
+  <circle cx="182" cy="122" r="88" fill="#38BDF8" fill-opacity="0.18" filter="url(#blur)"/>
+  <circle cx="1030" cy="136" r="112" fill="#FB7185" fill-opacity="0.18" filter="url(#blur)"/>
+  <circle cx="964" cy="560" r="136" fill="#F59E0B" fill-opacity="0.14" filter="url(#blur)"/>
+
+  <rect x="72" y="72" width="520" height="556" rx="28" fill="url(#panel)" stroke="#FFFFFF" stroke-opacity="0.16"/>
+  <text x="112" y="154" fill="#E6F1FF" font-family="Verdana, DejaVu Sans, sans-serif" font-size="27" font-weight="700">
+    Onec Context Toolkit
+  </text>
+  <text fill="#E6F1FF" font-family="Verdana, DejaVu Sans, sans-serif" font-size="42" font-weight="700">
+    <tspan x="112" y="214">Локальный</tspan>
+    <tspan x="112" y="264">контекст</tspan>
+    <tspan x="112" y="314">для 1С-агентов</tspan>
+  </text>
+  <text fill="#9FB3C8" font-family="Verdana, DejaVu Sans, sans-serif" font-size="22">
+    <tspan x="112" y="356">Source-first toolkit для сборки</tspan>
+    <tspan x="112" y="388">workspace packs и</tspan>
+    <tspan x="112" y="420">offline runtime bundle</tspan>
+  </text>
+
+  <rect x="112" y="438" width="180" height="44" rx="22" fill="#FFFFFF" fill-opacity="0.12"/>
+  <text x="144" y="466" fill="#D9F99D" font-family="Verdana, DejaVu Sans, sans-serif" font-size="20" font-weight="700">
+    ConfigDump
+  </text>
+  <rect x="308" y="438" width="120" height="44" rx="22" fill="#FFFFFF" fill-opacity="0.12"/>
+  <text x="349" y="466" fill="#BFDBFE" font-family="Verdana, DejaVu Sans, sans-serif" font-size="20" font-weight="700">
+    HBK
+  </text>
+  <rect x="444" y="438" width="108" height="44" rx="22" fill="#FFFFFF" fill-opacity="0.12"/>
+  <text x="472" y="466" fill="#FDE68A" font-family="Verdana, DejaVu Sans, sans-serif" font-size="20" font-weight="700">
+    Packs
+  </text>
+
+  <text x="112" y="518" fill="#E6F1FF" font-family="Verdana, DejaVu Sans, sans-serif" font-size="26" font-weight="700">
+    Установить один раз
+  </text>
+  <text x="112" y="554" fill="#C7D2E1" font-family="Verdana, DejaVu Sans, sans-serif" font-size="21">
+    Codex, Claude, Cursor integration
+  </text>
+
+  <text x="112" y="594" fill="#E6F1FF" font-family="Verdana, DejaVu Sans, sans-serif" font-size="26" font-weight="700">
+    Собирать локально
+  </text>
+  <text x="112" y="624" fill="#C7D2E1" font-family="Verdana, DejaVu Sans, sans-serif" font-size="20">
+    platform, metadata, code, full layers
+  </text>
+
+  <rect x="646" y="92" width="482" height="516" rx="28" fill="#08111D" fill-opacity="0.42" stroke="#FFFFFF" stroke-opacity="0.14"/>
+
+  <rect x="682" y="132" width="142" height="64" rx="18" fill="#13283D" stroke="#5EEAD4" stroke-opacity="0.6"/>
+  <text x="753" y="171" text-anchor="middle" fill="#E6F1FF" font-family="Verdana, DejaVu Sans, sans-serif" font-size="21" font-weight="700">Source</text>
+
+  <rect x="842" y="132" width="112" height="64" rx="18" fill="#13283D" stroke="#93C5FD" stroke-opacity="0.6"/>
+  <text x="898" y="171" text-anchor="middle" fill="#E6F1FF" font-family="Verdana, DejaVu Sans, sans-serif" font-size="24" font-weight="700">HBK</text>
+
+  <rect x="972" y="132" width="118" height="64" rx="18" fill="#13283D" stroke="#FDBA74" stroke-opacity="0.6"/>
+  <text x="1031" y="171" text-anchor="middle" fill="#E6F1FF" font-family="Verdana, DejaVu Sans, sans-serif" font-size="21" font-weight="700">Toolkit</text>
+
+  <path d="M756 196V246H900V196" stroke="#8FA8BF" stroke-width="3" stroke-linecap="round"/>
+  <path d="M900 196V246H1029V196" stroke="#8FA8BF" stroke-width="3" stroke-linecap="round"/>
+
+  <rect x="760" y="262" width="288" height="84" rx="22" fill="url(#accent)"/>
+  <text x="904" y="313" text-anchor="middle" fill="#1A0E03" font-family="Verdana, DejaVu Sans, sans-serif" font-size="31" font-weight="700">
+    onec-context
+  </text>
+
+  <path d="M904 346V376" stroke="#FFD9B5" stroke-width="4" stroke-linecap="round"/>
+
+  <rect x="688" y="388" width="156" height="96" rx="20" fill="#102236" stroke="#6EE7B7" stroke-opacity="0.55"/>
+  <text x="766" y="430" text-anchor="middle" fill="#E6F1FF" font-family="Verdana, DejaVu Sans, sans-serif" font-size="22" font-weight="700">platform</text>
+  <text x="766" y="460" text-anchor="middle" fill="#8FB3C9" font-family="Verdana, DejaVu Sans, sans-serif" font-size="18">help pack</text>
+
+  <rect x="860" y="388" width="170" height="96" rx="20" fill="#102236" stroke="#93C5FD" stroke-opacity="0.55"/>
+  <text x="945" y="430" text-anchor="middle" fill="#E6F1FF" font-family="Verdana, DejaVu Sans, sans-serif" font-size="21" font-weight="700">metadata</text>
+  <text x="945" y="460" text-anchor="middle" fill="#8FB3C9" font-family="Verdana, DejaVu Sans, sans-serif" font-size="18">objects</text>
+
+  <rect x="1040" y="388" width="86" height="96" rx="20" fill="#102236" stroke="#FCD34D" stroke-opacity="0.55"/>
+  <text x="1083" y="430" text-anchor="middle" fill="#E6F1FF" font-family="Verdana, DejaVu Sans, sans-serif" font-size="21" font-weight="700">code</text>
+  <text x="1083" y="460" text-anchor="middle" fill="#8FB3C9" font-family="Verdana, DejaVu Sans, sans-serif" font-size="17">logic</text>
+
+  <text fill="#E6F1FF" font-family="Verdana, DejaVu Sans, sans-serif" font-size="22" font-weight="700">
+    <tspan x="907" y="532" text-anchor="middle">Экспортировать</tspan>
+    <tspan x="907" y="556" text-anchor="middle">runtime bundle</tspan>
+  </text>
+  <text fill="#C7D2E1" font-family="Verdana, DejaVu Sans, sans-serif" font-size="18">
+    <tspan x="907" y="580" text-anchor="middle">read-only bundle для</tspan>
+    <tspan x="907" y="602" text-anchor="middle">offline lookup и transfer</tspan>
+  </text>
+</svg>
