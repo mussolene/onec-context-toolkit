@@ -1,0 +1,62 @@
+---
+name: onec-platform-cli
+description: Use this supplemental skill for 1C platform CLI, standalone server, cluster administration, CREATEINFOBASE, headless CONFIG, ibsrv, ibcmd, ragent, rac, and ras questions.
+---
+
+# Onec Platform CLI
+
+Tool home: `{repo_root}`
+
+This is a supplemental skill. Use it when the question is about:
+
+- `1cv8` in `CONFIG`, `ENTERPRISE`, or `CREATEINFOBASE`
+- headless and CI flows for 1C
+- `ragent`, `ras`, `rac`
+- `ibsrv`, `ibcmd`, standalone server, SSH gateway
+- temporary infobases, `ibases.v8i`, XML import/export, `.epf` / `.cfe` build routes
+
+## Core rules
+
+1. Always align the answer with the exact platform version.
+2. Distinguish cluster administration from standalone server administration.
+3. Distinguish SSH to `ibsrv` from ordinary shell or database access.
+4. Prefer temporary lightweight file infobases for batch operations when GUI-less context is required.
+5. For CI, prefer deterministic output files and result codes.
+
+## Tool choice
+
+- `1cv8 CREATEINFOBASE`
+  - create a file or server infobase without GUI
+  - best for temporary build infobases
+- `1cv8 CONFIG`
+  - package Designer mode
+  - use when classic batch configurator commands are required
+- `ragent` + `ras` + `rac`
+  - cluster server administration
+  - ports, sessions, cluster state, blocking, list of infobases
+- `ibsrv` + `ibcmd`
+  - standalone server and infobase administration
+  - local PID, offline data path, or remote SSH route
+
+## High-signal guidance
+
+- If the task is batch build or headless import/export, assume an infobase context is required unless the command documentation clearly says otherwise.
+- If many jobs must run in parallel, use multiple independent infobases rather than one shared infobase.
+- If the user wants remote automation through standalone server, prefer `ibcmd --remote ssh://...`; do not suggest plain `ssh user@host` as if it were a normal shell session.
+- If the question is about clusters, do not route it through `ibsrv` or `ibcmd`.
+- If the question is about standalone server, do not route it through `ragent` / `ras` / `rac`.
+
+## Useful defaults
+
+- For scripted `1cv8` runs, recommend `/Out` and `/DumpResult`.
+- For temporary build workflows, avoid adding the infobase to `ibases.v8i` unless the user explicitly wants it in the list.
+- For Linux headless GUI-dependent steps, remember `Xvfb + DISPLAY`.
+
+## Working style
+
+- First classify the task: cluster, standalone server, create infobase, package configurator, or XML import/export.
+- Then name the correct tool family.
+- Then give the minimal safe command pattern.
+- Then point out which flags must be verified in the official docs for the user's platform version.
+
+See also `reference.md` in this skill folder for the condensed platform CLI map.

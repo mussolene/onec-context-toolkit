@@ -9,6 +9,7 @@
 - экспортировать готовый read-only runtime bundle
 
 Agent/developer workflow, архитектурные правила и operational playbook вынесены в [AGENTS.md](<repo-root>/AGENTS.md).
+Дополнительный слой знаний по platform CLI, headless build и server administration вынесен в [docs/1c-platform-cli.md](<repo-root>/docs/1c-platform-cli.md).
 
 ## Что нужно заранее
 
@@ -55,6 +56,11 @@ python scripts/bootstrap.py
 ```bash
 python scripts/bootstrap.py --agent codex
 ```
+
+При установке integration toolkit ставит:
+
+- основной skill `onec-context`
+- дополнительный supplemental skill `onec-platform-cli` с картой по `1cv8`, `CREATEINFOBASE`, `ibcmd`, `ibsrv`, `ragent`, `rac`, `ras`
 
 Если нужен unix convenience wrapper:
 

@@ -1,0 +1,12 @@
+---
+description: 1C platform CLI, standalone server, cluster administration, and headless workflow guidance
+globs:
+alwaysApply: false
+---
+
+- When the question is about `1cv8`, `CREATEINFOBASE`, batch `CONFIG`, `ibsrv`, `ibcmd`, `ragent`, `ras`, or `rac`, first classify the task as cluster, standalone server, create infobase, or package configurator.
+- Do not mix cluster tooling (`ragent`, `ras`, `rac`) with standalone server tooling (`ibsrv`, `ibcmd`).
+- Prefer temporary lightweight file infobases for batch build operations that need a real infobase context.
+- For remote standalone server automation, prefer `ibcmd --remote ssh://...`; do not treat the SSH gateway as a normal shell session.
+- For classic `1cv8` scripting, prefer explicit output and result capture.
+- Always align command details with the user's exact platform version.

@@ -1,0 +1,51 @@
+# 1C Platform CLI Reference
+
+Use this reference when the question is about platform CLI or headless 1C workflows.
+
+## Quick map
+
+| Need | Preferred route |
+|---|---|
+| Create a new infobase | `1cv8 CREATEINFOBASE` |
+| Run Designer batch commands | `1cv8 CONFIG` |
+| Administer a 1C cluster | `ragent` + `ras` + `rac` |
+| Administer standalone server or infobase | `ibsrv` + `ibcmd` |
+| Build with temporary file infobase | `CREATEINFOBASE` -> `CONFIG /F ...` |
+
+## Do not mix these up
+
+- `ragent` is cluster infrastructure.
+- `ras` / `rac` are cluster administration tools.
+- `ibsrv` is standalone server.
+- `ibcmd` manages standalone server and infobases.
+- SSH to standalone server is not a regular shell and not direct database access.
+
+## Distilled rules
+
+1. Match the answer to the exact platform version.
+2. Many batch configurator scenarios need a real infobase context.
+3. Temporary lightweight file infobases are often the safest automation path.
+4. Parallel CI usually means several independent infobases, not many workers in one infobase.
+5. For classic `1cv8` scripts, use `/Out` and `/DumpResult`.
+
+## Typical guidance
+
+- `CREATEINFOBASE`: best for creating a temporary file infobase for package operations.
+- `CONFIG`: best for classic batch configurator flows and Designer-driven imports/exports.
+- `ibcmd --remote ssh://...`: best for standalone server remote management.
+- `ibcmd` offline or `--data`: useful when the data directory is not already locked by another `ibsrv`.
+- `rac` / `ras`: only for cluster questions.
+
+## CI notes
+
+- For GUI-dependent Linux steps, plan for `Xvfb + DISPLAY`.
+- Avoid using a heavy or sensitive production infobase as a temporary build context.
+- Prefer isolated temp infobases and explicit cleanup.
+
+## Official sources to verify against
+
+- Administrator Guide for the exact platform version
+- startup command-line appendix
+- standalone server (`ibsrv`) and `ibcmd`
+- cluster administration software documentation
+- corresponding ITS branch for the same platform line

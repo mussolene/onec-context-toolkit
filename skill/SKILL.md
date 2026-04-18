@@ -31,6 +31,10 @@ python3 tools/verify_local_kb.py --artifacts-dir ./artifacts
 python3 tools/resolve_packs.py --bundle-dir .
 ```
 
+## Supplemental reference
+
+- For platform CLI, standalone server, cluster administration, `1cv8`, `CREATEINFOBASE`, `ibcmd`, `ibsrv`, `ragent`, `rac`, and `ras`, use `docs/1c-platform-cli.md` in this bundle as the compact reference layer.
+
 ## Interpretation
 
 - `metadata_objects`: metadata object level hit

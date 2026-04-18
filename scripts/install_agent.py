@@ -46,7 +46,7 @@ def _write(path: Path, content: str) -> None:
     path.write_text(content, encoding="utf-8")
 
 
-def _install_codex(tool_home: str, entrypoint: str, skill_name: str) -> Path:
+def _install_codex(tool_home: str, entrypoint: str, skill_name: str) -> dict[str, str]:
     codex_home = Path(os.environ.get("CODEX_HOME", str(Path.home() / ".codex"))).expanduser().resolve()
     target = codex_home / "skills" / skill_name
     target.mkdir(parents=True, exist_ok=True)
@@ -56,10 +56,26 @@ def _install_codex(tool_home: str, entrypoint: str, skill_name: str) -> Path:
         entrypoint=str(entrypoint),
     )
     _write(target / "SKILL.md", content)
-    return target
+    cli_target = codex_home / "skills" / "onec-platform-cli"
+    cli_target.mkdir(parents=True, exist_ok=True)
+    _write(
+        cli_target / "SKILL.md",
+        _render_template(
+            "platform_cli_skill.md.tmpl",
+            repo_root=str(tool_home),
+        ),
+    )
+    _write(
+        cli_target / "reference.md",
+        _render_template("platform_cli_reference.md.tmpl"),
+    )
+    return {
+        "primary": str(target),
+        "platform_cli": str(cli_target),
+    }
 
 
-def _install_claude(tool_home: str, entrypoint: str, skill_name: str) -> Path:
+def _install_claude(tool_home: str, entrypoint: str, skill_name: str) -> dict[str, str]:
     target = Path.home().expanduser().resolve() / ".claude" / "skills" / skill_name
     target.mkdir(parents=True, exist_ok=True)
     content = _render_template(
@@ -68,10 +84,26 @@ def _install_claude(tool_home: str, entrypoint: str, skill_name: str) -> Path:
         entrypoint=str(entrypoint),
     )
     _write(target / "SKILL.md", content)
-    return target
+    cli_target = Path.home().expanduser().resolve() / ".claude" / "skills" / "onec-platform-cli"
+    cli_target.mkdir(parents=True, exist_ok=True)
+    _write(
+        cli_target / "SKILL.md",
+        _render_template(
+            "platform_cli_skill.md.tmpl",
+            repo_root=str(tool_home),
+        ),
+    )
+    _write(
+        cli_target / "reference.md",
+        _render_template("platform_cli_reference.md.tmpl"),
+    )
+    return {
+        "primary": str(target),
+        "platform_cli": str(cli_target),
+    }
 
 
-def _install_cursor(tool_home: str, entrypoint: str, workspace: Path) -> Path:
+def _install_cursor(tool_home: str, entrypoint: str, workspace: Path) -> dict[str, str]:
     target = workspace.expanduser().resolve() / ".cursor" / "rules" / "onec-context.mdc"
     content = _render_template(
         "cursor_rule.mdc.tmpl",
@@ -79,7 +111,17 @@ def _install_cursor(tool_home: str, entrypoint: str, workspace: Path) -> Path:
         entrypoint=str(entrypoint),
     )
     _write(target, content)
-    return target
+    cli_target = workspace.expanduser().resolve() / ".cursor" / "rules" / "onec-platform-cli.mdc"
+    _write(
+        cli_target,
+        _render_template(
+            "cursor_platform_cli_rule.mdc.tmpl",
+        ),
+    )
+    return {
+        "primary": str(target),
+        "platform_cli": str(cli_target),
+    }
 
 
 def main() -> int:
@@ -92,17 +134,17 @@ def main() -> int:
     args = parser.parse_args()
 
     if args.agent == "codex":
-        path = _install_codex(args.tool_home, args.entrypoint, args.skill_name)
+        installed = _install_codex(args.tool_home, args.entrypoint, args.skill_name)
     elif args.agent == "claude":
-        path = _install_claude(args.tool_home, args.entrypoint, args.skill_name)
+        installed = _install_claude(args.tool_home, args.entrypoint, args.skill_name)
     else:
-        path = _install_cursor(args.tool_home, args.entrypoint, Path(args.workspace))
+        installed = _install_cursor(args.tool_home, args.entrypoint, Path(args.workspace))
 
     print(
         json.dumps(
             {
                 "agent": args.agent,
-                "installed_to": str(path),
+                "installed": installed,
                 "entrypoint": args.entrypoint,
                 "tool_home": args.tool_home,
             },
