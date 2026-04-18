@@ -27,6 +27,22 @@ COMMAND_TO_SCRIPT = {
     "export": REPO_ROOT / "scripts" / "export_skill_bundle.py",
 }
 
+COMMAND_DESCRIPTIONS = {
+    "benchmark": "measure query latency for built packs",
+    "bootstrap": "install local Python dependencies for the toolkit",
+    "doctor": "check host prerequisites and optional HBK helpers",
+    "ensure": "build an extra workspace layer only when needed",
+    "export": "export a read-only skill bundle from an initialized workspace",
+    "init": "initialize a workspace and build the base help layer",
+    "install-agent": "install the self-contained skill bundle into an agent",
+    "query-code": "query the code pack for modules, symbols, calls, and callers",
+    "query-config": "query the full lossless config pack",
+    "query-kb": "query platform or metadata knowledge packs",
+    "resolve-packs": "show exact pack paths and available targets for a workspace",
+    "status": "check workspace state and detect stale or missing packs",
+    "verify": "run smoke checks against the current workspace packs",
+}
+
 
 def _print_help() -> None:
     commands = ",".join(sorted(COMMAND_TO_SCRIPT))
@@ -34,9 +50,14 @@ def _print_help() -> None:
     print()
     print("1C source-first local context toolkit")
     print()
+    print("quick start:")
+    print("  1. onec-context doctor --workspace-init --hbk-base <HBK_ROOT>")
+    print("  2. onec-context init --workspace-root <repo> --source-path <source> --profile base --hbk-base <HBK_ROOT> --platform <VERSION>")
+    print("  3. onec-context ensure --workspace-root <repo> --need metadata|code|full  # only when needed")
+    print()
     print("commands:")
     for name in sorted(COMMAND_TO_SCRIPT):
-        print(f"  {name}")
+        print(f"  {name:<14} {COMMAND_DESCRIPTIONS[name]}")
 
 
 def _venv_python() -> Path:
