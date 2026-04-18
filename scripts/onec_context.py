@@ -29,7 +29,7 @@ COMMAND_TO_SCRIPT = {
 
 def _print_help() -> None:
     commands = ",".join(sorted(COMMAND_TO_SCRIPT))
-    print("usage: onec_context.py [-h] {" + commands + "} ...")
+    print("usage: onec-context [-h] {" + commands + "} ...")
     print()
     print("1C source-first local context toolkit")
     print()

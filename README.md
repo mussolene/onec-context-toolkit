@@ -8,8 +8,8 @@
 - собрать локальный context workspace в `.onec/` из `ConfigDump`, `HBK` и optional `metadata XML export`
 - экспортировать готовый read-only runtime bundle
 
-Agent/developer workflow, архитектурные правила и operational playbook вынесены в [AGENTS.md](<repo-root>/AGENTS.md).
-Дополнительный слой знаний по platform CLI, headless build и server administration вынесен в [docs/1c-platform-cli.md](<repo-root>/docs/1c-platform-cli.md).
+Agent/developer workflow, архитектурные правила и operational playbook вынесены в [AGENTS.md](AGENTS.md).
+Дополнительный слой знаний по platform CLI, headless build и server administration вынесен в [docs/1c-platform-cli.md](docs/1c-platform-cli.md).
 
 ## Что нужно заранее
 
@@ -18,7 +18,9 @@ Agent/developer workflow, архитектурные правила и operation
 - Python `3.11+`
 - `zstd`
 - папка `ConfigDump` или другая поддерживаемая source tree
-- доступ к `HBK`, если нужен базовый language/API слой платформы
+- доступ к `HBK` для стандартных профилей `base`, `metadata`, `dev`, `full`
+
+`HBK` не нужен только в явном нестандартном сценарии с `--without-help`.
 
 Проверить prerequisites можно так:
 

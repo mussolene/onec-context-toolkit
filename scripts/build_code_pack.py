@@ -317,7 +317,7 @@ def build_pack(
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Build compact code.pack.db(.zst) from ConfigDump")
-    parser.add_argument("--source-dir", default="/path/to/workspace")
+    parser.add_argument("--source-dir", required=True)
     parser.add_argument("--db-path", default="build/code.pack.db")
     parser.add_argument("--out-zst", default="artifacts/code.pack.db.zst")
     parser.add_argument("--manifest", default="artifacts/code.pack.manifest.json")
