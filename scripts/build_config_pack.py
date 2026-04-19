@@ -7,6 +7,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import sqlite3
 import sys
 import time
@@ -63,6 +64,17 @@ EXCLUDED_BINARY_EXTENSIONS = {
     ".mxl",
 }
 
+EXCLUDED_HTML_BUNDLE_EXTENSIONS = {
+    ".css",
+    ".html",
+    ".htm",
+    ".js",
+}
+
+SPREADSHEET_TEMPLATE_MIN_BYTES = 1_000_000
+EMBEDDED_IMAGE_PREFIX_BYTES = 1_000_000
+BASE64_IMAGE_RE = re.compile(r"data:image/[^;]+;base64,[A-Za-z0-9+/=\s]+", re.IGNORECASE)
+
 
 def _now_iso() -> str:
     return time.strftime("%Y-%m-%dT%H:%M:%S%z")
@@ -100,6 +112,8 @@ def _text_excerpt(data: bytes, path: Path, max_chars: int) -> tuple[str, str | N
         encoding = _guess_text_encoding(data)
         if encoding is not None:
             text = data.decode(encoding, errors="replace")
+            if "data:image/" in text.lower():
+                text = BASE64_IMAGE_RE.sub("[embedded-image]", text)
             excerpt = " ".join(text.split())
             if len(excerpt) > max_chars:
                 excerpt = excerpt[: max_chars - 1].rstrip() + "…"
@@ -121,13 +135,55 @@ def _object_hint(rel_path: Path, entry_type: str) -> tuple[str, str]:
     return object_type, object_name
 
 
-def _excluded_reason(path: Path) -> str | None:
+def _read_prefix(path: Path, limit: int) -> bytes:
+    with path.open("rb") as fh:
+        return fh.read(limit)
+
+
+def _is_template_tree(rel_path: Path) -> bool:
+    return "Templates" in rel_path.parts
+
+
+def _has_embedded_base64_image(path: Path) -> bool:
+    try:
+        prefix = _read_prefix(path, EMBEDDED_IMAGE_PREFIX_BYTES)
+    except OSError:
+        return False
+    lowered = prefix.lower()
+    return b"data:image/" in lowered and b";base64," in lowered
+
+
+def _is_large_spreadsheet_template(path: Path, rel_path: Path, size_bytes: int) -> bool:
+    if size_bytes < SPREADSHEET_TEMPLATE_MIN_BYTES:
+        return False
+    if path.name != "Template.xml" or not _is_template_tree(rel_path):
+        return False
+    try:
+        prefix = _read_prefix(path, 4096)
+    except OSError:
+        return False
+    lowered = prefix.lower()
+    return b"<document" in lowered and b"data/spreadsheet" in lowered
+
+
+def _excluded_reason(path: Path, rel_path: Path, size_bytes: int) -> str | None:
+    rel_str = rel_path.as_posix()
     if path.name.lower() in EXCLUDED_FILENAMES:
         return "template-binary"
+    if rel_path.parts[:1] == ("XDTOPackages",) and path.name == "Package.bin":
+        return "xdto-binary"
+    if "/Templates/" in f"/{rel_str}/" and "/Ext/Template/_files/" in f"/{rel_str}/":
+        return "template-html-asset"
+    if "/Templates/" in f"/{rel_str}/" and "/Ext/Template/" in f"/{rel_str}/" and path.suffix.lower() in EXCLUDED_HTML_BUNDLE_EXTENSIONS:
+        return "template-html-bundle"
     if path.suffix.lower() in EXCLUDED_IMAGE_EXTENSIONS:
         return "image-asset"
     if path.suffix.lower() in EXCLUDED_BINARY_EXTENSIONS:
         return "mxl-binary"
+    if _is_large_spreadsheet_template(path, rel_path, size_bytes):
+        return "spreadsheet-template"
+    if _is_template_tree(rel_path) and path.suffix.lower() in TEXT_EXTENSIONS and _has_embedded_base64_image(path):
+        return "embedded-base64-image"
     return None
 
 
@@ -342,7 +398,7 @@ def build_pack(
                 (rel_str, parent_path, path.name, stat.st_mode, stat.st_mtime_ns, object_type, object_name),
             )
         else:
-            excluded_reason = _excluded_reason(path)
+            excluded_reason = _excluded_reason(path, rel_path, stat.st_size)
             if excluded_reason is not None:
                 excluded_file_count += 1
                 excluded_source_bytes += stat.st_size
