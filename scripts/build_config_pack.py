@@ -42,6 +42,27 @@ TEXT_EXTENSIONS = {
     ".xsl",
 }
 
+EXCLUDED_FILENAMES = {
+    "template.bin",
+}
+
+EXCLUDED_IMAGE_EXTENSIONS = {
+    ".bmp",
+    ".gif",
+    ".ico",
+    ".jpeg",
+    ".jpg",
+    ".png",
+    ".svg",
+    ".tif",
+    ".tiff",
+    ".webp",
+}
+
+EXCLUDED_BINARY_EXTENSIONS = {
+    ".mxl",
+}
+
 
 def _now_iso() -> str:
     return time.strftime("%Y-%m-%dT%H:%M:%S%z")
@@ -98,6 +119,16 @@ def _object_hint(rel_path: Path, entry_type: str) -> tuple[str, str]:
     object_type = parts[0]
     object_name = Path(parts[1]).stem if entry_type == "file" and len(parts) == 2 else parts[1]
     return object_type, object_name
+
+
+def _excluded_reason(path: Path) -> str | None:
+    if path.name.lower() in EXCLUDED_FILENAMES:
+        return "template-binary"
+    if path.suffix.lower() in EXCLUDED_IMAGE_EXTENSIONS:
+        return "image-asset"
+    if path.suffix.lower() in EXCLUDED_BINARY_EXTENSIONS:
+        return "mxl-binary"
+    return None
 
 
 def _iter_entries(root: Path):
@@ -277,6 +308,9 @@ def build_pack(
     ext_counts: Counter[str] = Counter()
     object_type_counts: Counter[str] = Counter()
     content_kind_counts: Counter[str] = Counter()
+    excluded_reason_counts: Counter[str] = Counter()
+    excluded_file_count = 0
+    excluded_source_bytes = 0
     batch_count = 0
 
     cur.executemany(
@@ -308,6 +342,12 @@ def build_pack(
                 (rel_str, parent_path, path.name, stat.st_mode, stat.st_mtime_ns, object_type, object_name),
             )
         else:
+            excluded_reason = _excluded_reason(path)
+            if excluded_reason is not None:
+                excluded_file_count += 1
+                excluded_source_bytes += stat.st_size
+                excluded_reason_counts[excluded_reason] += 1
+                continue
             data = path.read_bytes()
             sha256 = _sha256_bytes(data)
             excerpt, encoding, content_kind = _text_excerpt(data, path, excerpt_chars)
@@ -380,6 +420,8 @@ def build_pack(
             "entries_total": file_count + dir_count,
             "files_total": file_count,
             "dirs_total": dir_count,
+            "excluded_files_total": excluded_file_count,
+            "excluded_source_bytes": excluded_source_bytes,
             "source_bytes": total_source_bytes,
             "blob_bytes": total_blob_bytes,
             "db_bytes": db_bytes,
@@ -387,6 +429,7 @@ def build_pack(
             "duration_sec": round(duration_sec, 3),
             "compression_ratio": round(zst_bytes / total_source_bytes, 6) if total_source_bytes else 0.0,
             "ext_counts": dict(ext_counts),
+            "excluded_reason_counts": dict(excluded_reason_counts),
             "object_type_counts": dict(object_type_counts),
             "content_kind_counts": dict(content_kind_counts),
             "db_path": _path_for_manifest(db_path),

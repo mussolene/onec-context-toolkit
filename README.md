@@ -97,6 +97,8 @@ python scripts/onec_context.py ensure --workspace-root /path/to/workspace --need
 
 Повторяемые developer-facing сценарии собраны в [examples/proof-surface.md](examples/proof-surface.md). Это не маркетинговые лозунги, а canonical tasks с ожидаемым route по слоям, примером запроса и тем, что именно агент должен доказать.
 
+Дополнительная живая доказательная база с обезличенными archetypes из большой production-like 1С-кодовой базы собрана в [examples/live-codebase-proof.md](examples/live-codebase-proof.md). Она нужна, чтобы проверять toolkit не только на учебных сценариях, но и на реальных формах, командах, табличных частях и command modules.
+
 В минимальный proof surface входят:
 
 - version-exact проверка платформенного метода через `platform`
