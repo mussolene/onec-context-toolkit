@@ -1,4 +1,4 @@
-"""Shared datatypes for metadata export → Qdrant (metadata XML export XML / compact snapshot).
+"""Shared datatypes for metadata export → Qdrant (metadata XML export / compact snapshot).
 
 File-system crawling of «выгрузка в файлы» was removed; KD2 XML and JSONL snapshots
 still produce :class:`CrawlResult` via :mod:`onec_help.knowledge.kd2_metadata`.

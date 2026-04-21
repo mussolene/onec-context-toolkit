@@ -3,7 +3,7 @@
 
 Modes:
 - help:     HBK -> unpacked HTML -> structured JSONL -> kb.db.zst
-- metadata: metadata XML export XML -> snapshot JSONL -> metadata.kb.db.zst
+- metadata: metadata XML export -> snapshot JSONL -> metadata.kb.db.zst
 - all:      run both modes
 
 Output artifacts are designed for local/offline skill usage without Docker/Qdrant.
@@ -925,7 +925,7 @@ def _parser() -> argparse.ArgumentParser:
             "--metadata-source",
             type=str,
             default=None,
-            help="Optional fallback/import mode: metadata XML export XML file/dir OR snapshot dir/root.",
+            help="Optional fallback/import mode: metadata XML export file/dir OR snapshot dir/root.",
         )
         sp.add_argument(
             "--config-version",

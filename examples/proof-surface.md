@@ -128,7 +128,7 @@ python scripts/onec_context.py init \
   --source-path /path/to/workspace \
   --profile metadata \
   --hbk-base /opt/1cv8 \
-  --metadata-source /path/to/metadata_export
+  --metadata-source /path/to/metadata-xml-export
 ```
 
 - Что должен доказать агент:

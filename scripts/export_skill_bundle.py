@@ -108,9 +108,15 @@ def export_bundle(workspace_root: Path, output_dir: Path, bundle_name: str) -> P
         (REPO_ROOT / "src" / "onec_help" / "runtime_db.py", bundle_root / "src" / "onec_help" / "runtime_db.py"),
         (REPO_ROOT / "src" / "onec_help" / "workspace_manifest.py", bundle_root / "src" / "onec_help" / "workspace_manifest.py"),
         (REPO_ROOT / "src" / "onec_help" / "zstd_compat.py", bundle_root / "src" / "onec_help" / "zstd_compat.py"),
-        (REPO_ROOT / "tools" / "1c" / "external data processor file", bundle_root / "tools" / "1c" / "external data processor file"),
-        (REPO_ROOT / "tools" / "1c" / "external data processor root XML", bundle_root / "tools" / "1c" / "external data processor root XML"),
-        (REPO_ROOT / "tools" / "1c" / "build_external_data_processor.sh", bundle_root / "tools" / "1c" / "build_external_data_processor.sh"),
+        (REPO_ROOT / "tools" / "1c" / "README.md", bundle_root / "tools" / "1c" / "README.md"),
+        (
+            REPO_ROOT / "tools" / "1c" / "build_external_data_processor.sh",
+            bundle_root / "tools" / "1c" / "build_external_data_processor.sh",
+        ),
+        (
+            REPO_ROOT / "tools" / "1c" / "unpack_external_data_processor.sh",
+            bundle_root / "tools" / "1c" / "unpack_external_data_processor.sh",
+        ),
     ]
     for src, dst in runtime_files:
         if not src.is_file():

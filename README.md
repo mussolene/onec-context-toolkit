@@ -239,7 +239,7 @@ python scripts/onec_context.py init \
   --source-path /path/to/workspace \
   --profile metadata \
   --hbk-base /opt/1cv8 \
-  --metadata-source /path/to/metadata_export
+  --metadata-source /path/to/metadata-xml-export
 ```
 
 `metadata XML export` здесь остаётся fallback или verification layer. Нормальный happy path для toolkit всё равно начинается с `ConfigDump` + `HBK`, а `metadata XML export` используется, когда source tree неполный или нужно перепроверить спорные реквизиты и типы.
