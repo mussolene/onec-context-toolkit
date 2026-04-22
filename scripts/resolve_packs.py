@@ -37,7 +37,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Resolve exact pack paths from a workspace or bundle manifest")
     parser.add_argument("--workspace-root", default=".", help="Workspace root with .onec/workspace.manifest.json")
     parser.add_argument("--bundle-dir", default=None, help="Bundle root with bundle.manifest.json")
-    parser.add_argument("--role", choices=["platform", "metadata", "code", "full"], default=None)
+    parser.add_argument("--role", choices=["platform", "standards", "metadata", "code", "full"], default=None)
     parser.add_argument("--target", default=None, help="Source identity for target-bound roles")
     parser.add_argument("--all-targets", action="store_true", help="Return all target-bound pack paths for the selected role")
     parser.add_argument("--path-only", action="store_true", help="Print only the resolved path when one result is selected")
@@ -71,15 +71,18 @@ def main() -> int:
         print(json.dumps(payload, ensure_ascii=False, indent=2))
         return 0
 
-    if args.role == "platform":
+    if args.role in {"platform", "standards"}:
         resolved = platform_pack(manifest)
+        if args.role == "standards":
+            packs = manifest.get("packs") or {}
+            resolved = packs.get("standards") if isinstance(packs, dict) else None
         if not resolved:
             return 2
         resolved_path = str(resolve_pack_path(resolved, base_root=manifest_root))
         if args.path_only:
             print(resolved_path)
         else:
-            print(json.dumps({"role": "platform", "path": resolved_path}, ensure_ascii=False, indent=2))
+            print(json.dumps({"role": args.role, "path": resolved_path}, ensure_ascii=False, indent=2))
         return 0
 
     if args.all_targets:

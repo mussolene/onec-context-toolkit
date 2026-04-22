@@ -20,10 +20,11 @@ Use this bundle when:
 1. Resolve exact artifact paths with `python3 tools/resolve_packs.py --bundle-dir .`; do not hardcode filenames.
 2. If multiple targets are present, choose the correct one by name/version before querying.
 3. Prefer `targets.<source-identity>.packs.metadata` for metadata questions when it is present.
-4. Prefer `targets.<source-identity>.packs.code` for symbol and call graph questions when it is present.
-5. Use `targets.<source-identity>.packs.full` only when exact source bytes or full file reads are required.
-6. Use `packs.platform` only for platform help/API lookup.
-7. Separate confirmed facts from inferences when the available pack does not prove the full claim.
+4. Prefer `packs.standards` for ITS-only development-standards questions when it is present.
+5. Prefer `targets.<source-identity>.packs.code` for symbol and call graph questions when it is present.
+6. Use `targets.<source-identity>.packs.full` only when exact source bytes or full file reads are required.
+7. Use `packs.platform` only for platform help/API lookup.
+8. Separate confirmed facts from inferences when the available pack does not prove the full claim.
 
 ## Practical commands
 
@@ -38,6 +39,7 @@ python3 tools/resolve_packs.py --bundle-dir .
 - For cheapest-first routing across `platform -> metadata -> code -> full`, use `references/query-strategy.md`.
 - For object and requisite behavior tracing, use `references/explain-object.md`.
 - For platform API and syntax verification, use `references/platform-fact-check.md`.
+- For development standards and coding-convention checks, use `references/dev-standards.md`.
 
 ## Interpretation
 

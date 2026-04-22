@@ -7,6 +7,7 @@ import argparse
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import time
@@ -23,6 +24,12 @@ def _now_iso() -> str:
 
 def _run(cmd: list[str]) -> None:
     subprocess.run(cmd, check=True)
+
+
+def _cleanup_intermediate(onec_root: Path) -> None:
+    work_dir = onec_root / "work"
+    if work_dir.is_dir():
+        shutil.rmtree(work_dir, ignore_errors=True)
 
 
 def _detect_hbk_base(explicit: str | None) -> Path | None:
@@ -43,6 +50,27 @@ def _detect_hbk_base(explicit: str | None) -> Path | None:
 def _write_manifest(path: Path, payload: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def _is_absolute_path_like(value: str) -> bool:
+    text = (value or "").strip()
+    if not text:
+        return False
+    if text.startswith("http://") or text.startswith("https://"):
+        return False
+    if text.startswith("/"):
+        return True
+    return bool(re.match(r"^[A-Za-z]:[\\/]", text))
+
+
+def _public_payload(payload: object) -> object:
+    if isinstance(payload, dict):
+        return {k: _public_payload(v) for k, v in payload.items()}
+    if isinstance(payload, list):
+        return [_public_payload(x) for x in payload]
+    if isinstance(payload, str) and _is_absolute_path_like(payload):
+        return "<redacted-path>"
+    return payload
 
 
 def _slug_part(value: str) -> str:
@@ -84,6 +112,11 @@ def _pack_paths(onec_root: Path, *, source_stem: str, requested_platforms: list[
             "db": cache_dir / f"{platform_stem}.kb.db",
             "zst": packs_dir / f"{platform_stem}.kb.db.zst",
             "manifest": manifests_dir / f"{platform_stem}.kb.manifest.json",
+        },
+        "standards": {
+            "db": cache_dir / "standards.its-v8std.kb.db",
+            "zst": packs_dir / "standards.its-v8std.kb.db.zst",
+            "manifest": manifests_dir / "standards.its-v8std.kb.manifest.json",
         },
     }
 
@@ -136,11 +169,12 @@ def _target_identities(config_infos: list[Any]) -> list[tuple[Any, str]]:
     return out
 
 
-def _build_flags(args: argparse.Namespace) -> tuple[bool, bool, bool, bool]:
+def _build_flags(args: argparse.Namespace) -> tuple[bool, bool, bool, bool, bool]:
     build_help = not bool(args.without_help)
     build_metadata = bool(args.with_metadata)
     build_code = bool(args.with_code)
     build_full = bool(args.with_full_pack)
+    build_standards = bool(args.with_standards)
 
     if args.profile == "base":
         build_help = True if not args.without_help else False
@@ -160,7 +194,7 @@ def _build_flags(args: argparse.Namespace) -> tuple[bool, bool, bool, bool]:
     if build_code or build_full:
         build_metadata = True
 
-    return build_help, build_metadata, build_code, build_full
+    return build_help, build_metadata, build_code, build_full, build_standards
 
 
 def init_workspace(args: argparse.Namespace) -> dict[str, Any]:
@@ -177,7 +211,7 @@ def init_workspace(args: argparse.Namespace) -> dict[str, Any]:
     source_layout = "single-root" if len(config_infos) == 1 else "multi-root" if config_infos else "no-config-root"
     detected_kind = config_infos[0].source_kind if len(config_infos) == 1 else "multi-root" if config_infos else "unknown"
     source_kind = args.source_kind if args.source_kind != "auto" else detected_kind
-    build_help, build_metadata, build_code, build_full = _build_flags(args)
+    build_help, build_metadata, build_code, build_full, build_standards = _build_flags(args)
 
     manifest: dict[str, Any] = {
         "format": "onec_workspace_manifest_v2",
@@ -199,6 +233,12 @@ def init_workspace(args: argparse.Namespace) -> dict[str, Any]:
         manifest["optional_sources"]["metadata_export"] = str(
             Path(args.metadata_source).expanduser().resolve()
         )
+    standards_dir: Path | None = None
+    if build_standards:
+        standards_dir = Path(
+            args.standards_dir or (workspace_root / "data" / "standards" / "its-v8std")
+        ).expanduser().resolve()
+        manifest["optional_sources"]["standards_dir"] = str(standards_dir)
 
     if config_infos:
         manifest["source_identities"] = []
@@ -341,6 +381,46 @@ def init_workspace(args: argparse.Namespace) -> dict[str, Any]:
         manifest["packs"]["platform"] = str(pack_paths["platform"]["zst"])
         manifest["optional_sources"]["hbk_base"] = str(hbk_base)
 
+    if build_standards:
+        fallback_stem = (
+            manifest.get("source_identities", [None])[0]
+            if manifest.get("source_identities")
+            else _fallback_source_stem(source_path, args.metadata_source)
+        )
+        pack_paths = _pack_paths(
+            onec_root,
+            source_stem=str(fallback_stem),
+            requested_platforms=list(args.platform or []),
+        )
+        if bool(args.fetch_its_standards):
+            fetch_args = [
+                sys.executable,
+                str(REPO_ROOT / "scripts" / "fetch_its_v8std.py"),
+                "--output-dir",
+                str(standards_dir),
+            ]
+            _run(fetch_args)
+        standards_args = [
+            sys.executable,
+            str(REPO_ROOT / "scripts" / "build_local_kb.py"),
+            "standards",
+            "--standards-dir",
+            str(standards_dir),
+            "--standards-version",
+            "its-v8std",
+            "--db-path",
+            str(pack_paths["standards"]["db"]),
+            "--out-zst",
+            str(pack_paths["standards"]["zst"]),
+            "--manifest",
+            str(pack_paths["standards"]["manifest"]),
+        ]
+        _run(standards_args)
+        manifest["packs"]["standards"] = str(pack_paths["standards"]["zst"])
+
+    if bool(args.cleanup_intermediate):
+        _cleanup_intermediate(onec_root)
+
     manifest_path = onec_root / "workspace.manifest.json"
     _write_manifest(manifest_path, manifest)
     return manifest
@@ -365,9 +445,14 @@ def main() -> int:
     parser.add_argument("--with-metadata", action="store_true", help="Also build metadata on top of the selected profile.")
     parser.add_argument("--with-code", action="store_true", help="Also build code.pack on top of the selected profile.")
     parser.add_argument("--with-full-pack", action="store_true", help="Also build lossless ConfigDump pack.")
+    parser.add_argument("--with-standards", action="store_true", help="Also build ITS standards pack.")
+    parser.add_argument("--standards-dir", default=None, help="Directory with ITS markdown files for standards pack input.")
+    parser.add_argument("--fetch-its-standards", action="store_true", help="Fetch ITS v8std markdown before standards pack build.")
+    parser.add_argument("--cleanup-intermediate", action="store_true", default=True, help="Remove intermediate work/jsonl directories after packs are built (default: true).")
+    parser.add_argument("--no-cleanup-intermediate", dest="cleanup_intermediate", action="store_false", help="Keep intermediate work/jsonl directories.")
     args = parser.parse_args()
     manifest = init_workspace(args)
-    print(json.dumps(manifest, ensure_ascii=False, indent=2))
+    print(json.dumps(_public_payload(manifest), ensure_ascii=False, indent=2))
     return 0
 
 

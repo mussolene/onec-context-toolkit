@@ -8,6 +8,7 @@ import json
 import shutil
 import tarfile
 from pathlib import Path
+import re
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -17,6 +18,7 @@ SUPPLEMENTAL_REFERENCES = (
     ("query_strategy_reference.md.tmpl", "references/query-strategy.md"),
     ("explain_object_reference.md.tmpl", "references/explain-object.md"),
     ("platform_fact_check_reference.md.tmpl", "references/platform-fact-check.md"),
+    ("dev_standards_reference.md.tmpl", "references/dev-standards.md"),
 )
 
 
@@ -33,6 +35,51 @@ def _render_template(name: str, **values: str) -> str:
 def _write(path: Path, content: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content, encoding="utf-8")
+
+
+_SENSITIVE_PATH_KEYS = {
+    "workspace_root",
+    "tool_repo",
+    "source_path",
+    "source_root",
+    "configuration_xml",
+    "config_root",
+    "hbk_base",
+    "metadata_export",
+    "standards_dir",
+    "source_dir",
+    "source_jsonl_dir",
+    "source_standards_dir",
+}
+
+
+def _is_absolute_path_like(value: str) -> bool:
+    text = (value or "").strip()
+    if not text:
+        return False
+    if text.startswith("http://") or text.startswith("https://"):
+        return False
+    if text.startswith("/"):
+        return True
+    if re.match(r"^[A-Za-z]:[\\/]", text):
+        return True
+    return False
+
+
+def _sanitize_public_payload(payload: object, *, parent_key: str | None = None) -> object:
+    if isinstance(payload, dict):
+        return {
+            key: _sanitize_public_payload(value, parent_key=str(key))
+            for key, value in payload.items()
+        }
+    if isinstance(payload, list):
+        return [_sanitize_public_payload(item, parent_key=parent_key) for item in payload]
+    if isinstance(payload, str):
+        if parent_key in _SENSITIVE_PATH_KEYS and _is_absolute_path_like(payload):
+            return "<redacted-path>"
+        if _is_absolute_path_like(payload):
+            return "<redacted-path>"
+    return payload
 
 
 def _load_workspace_manifest(workspace_root: Path) -> dict:
@@ -104,6 +151,7 @@ def export_bundle(workspace_root: Path, output_dir: Path, bundle_name: str) -> P
         (REPO_ROOT / "scripts" / "resolve_packs.py", bundle_root / "tools" / "resolve_packs.py"),
         (REPO_ROOT / "tools" / "query_config_pack.py", bundle_root / "tools" / "query_config_pack.py"),
         (REPO_ROOT / "tools" / "query_code_pack.py", bundle_root / "tools" / "query_code_pack.py"),
+        (REPO_ROOT / "scripts" / "fetch_its_v8std.py", bundle_root / "tools" / "fetch_its_v8std.py"),
         (REPO_ROOT / "src" / "onec_help" / "__init__.py", bundle_root / "src" / "onec_help" / "__init__.py"),
         (REPO_ROOT / "src" / "onec_help" / "runtime_db.py", bundle_root / "src" / "onec_help" / "runtime_db.py"),
         (REPO_ROOT / "src" / "onec_help" / "workspace_manifest.py", bundle_root / "src" / "onec_help" / "workspace_manifest.py"),
@@ -138,7 +186,12 @@ def export_bundle(workspace_root: Path, output_dir: Path, bundle_name: str) -> P
         pack_dst = bundle_root / "artifacts" / pack_path.name
         manifest_dst = bundle_root / "artifacts" / pack_manifest.name
         _copy(pack_path, pack_dst)
-        _copy(pack_manifest, manifest_dst)
+        try:
+            raw_manifest = json.loads(pack_manifest.read_text(encoding="utf-8"))
+            public_manifest = _sanitize_public_payload(raw_manifest)
+            _write(manifest_dst, json.dumps(public_manifest, ensure_ascii=False, indent=2))
+        except Exception:
+            _copy(pack_manifest, manifest_dst)
         rel_pack = str(pack_dst.relative_to(bundle_root)).replace("\\", "/")
         if target_name is None:
             copied_packs[str(pack_name)] = rel_pack

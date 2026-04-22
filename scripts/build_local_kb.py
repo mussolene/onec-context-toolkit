@@ -4,7 +4,8 @@
 Modes:
 - help:     HBK -> unpacked HTML -> structured JSONL -> kb.db.zst
 - metadata: metadata XML export -> snapshot JSONL -> metadata.kb.db.zst
-- all:      run both modes
+- standards: ITS markdown -> standards.kb.db.zst
+- all:      run help + metadata
 
 Output artifacts are designed for local/offline skill usage without Docker/Qdrant.
 """
@@ -40,6 +41,7 @@ HELP_JSONL_FILES: tuple[str, ...] = (
     "api_links.jsonl",
     "api_topics.jsonl",
 )
+ITS_FRONTMATTER_RE = re.compile(r"^---\n.*?\n---\n+", re.DOTALL)
 
 LANG_PATTERN = re.compile(r"_([a-z]{2})\.hbk$", re.IGNORECASE)
 PLATFORM_VERSION_PATTERN = re.compile(r"^\d+(?:\.\d+){2,3}$")
@@ -133,6 +135,32 @@ def _jsonl_iter(path: Path):
                 yield json.loads(line)
             except json.JSONDecodeError:
                 continue
+
+
+def _iter_markdown_files(root: Path):
+    for path in sorted(root.rglob("*.md")):
+        if not path.is_file():
+            continue
+        if path.name.startswith("_"):
+            continue
+        yield path
+
+
+def _extract_md_title_description(markdown_text: str, fallback_title: str) -> tuple[str, str]:
+    text = ITS_FRONTMATTER_RE.sub("", markdown_text.strip())
+    title = fallback_title
+    for line in text.splitlines():
+        line = line.strip()
+        if line.startswith("# "):
+            title = line[2:].strip() or fallback_title
+            break
+    desc = ""
+    for chunk in text.split("\n\n"):
+        cleaned = _compact_text(chunk, max_chars=500)
+        if cleaned and not cleaned.startswith("#"):
+            desc = cleaned
+            break
+    return title, desc
 
 
 @dataclass
@@ -765,6 +793,83 @@ def _build_metadata_jsonl(
     )
 
 
+def _build_standards_markdown(
+    standards_dir: Path,
+    db_path: Path,
+    out_zst: Path,
+    standards_version: str,
+    max_payload_chars: int,
+    keep_db: bool,
+) -> BuildStats:
+    con = _create_docs_db(db_path)
+    cur = con.cursor()
+
+    domain_counts: Counter[str] = Counter()
+    versions_seen: Counter[str] = Counter()
+    rows_total = 0
+    raw_input_bytes = 0
+
+    for md_file in _iter_markdown_files(standards_dir):
+        try:
+            raw = md_file.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue
+        content = raw.strip()
+        if not content:
+            continue
+        raw_input_bytes += md_file.stat().st_size
+        rel = str(md_file.relative_to(standards_dir)).replace("\\", "/")
+        title, desc = _extract_md_title_description(content, fallback_title=md_file.stem)
+        payload = _compact_text(
+            " ".join(
+                p
+                for p in (
+                    _compact_text(desc, max_chars=max_payload_chars),
+                    _compact_text(content, max_chars=max_payload_chars),
+                )
+                if p
+            ),
+            max_chars=max_payload_chars,
+        )
+        cur.execute(
+            """
+            INSERT INTO docs(domain, name, topic_path, version, versions_json, payload)
+            VALUES(?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "standards",
+                title,
+                rel,
+                standards_version,
+                json.dumps([standards_version], ensure_ascii=False),
+                payload,
+            ),
+        )
+        rows_total += 1
+        domain_counts["standards"] += 1
+        versions_seen[standards_version] += 1
+    con.commit()
+
+    _finalize_docs_db(con)
+    con.close()
+
+    db_bytes = db_path.stat().st_size
+    zst_bytes = _pack_zstd(db_path, out_zst)
+    if not keep_db:
+        db_path.unlink(missing_ok=True)
+
+    return BuildStats(
+        rows_total=rows_total,
+        domain_counts=dict(domain_counts),
+        versions_seen=dict(versions_seen),
+        raw_input_bytes=raw_input_bytes,
+        db_bytes=db_bytes,
+        zst_bytes=zst_bytes,
+        db_path=str(db_path),
+        zst_path=str(out_zst),
+    )
+
+
 def _write_manifest(path: Path, payload: dict[str, Any]) -> None:
     _ensure_parent(path)
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -847,6 +952,43 @@ def _run_metadata(args: argparse.Namespace) -> None:
     }
     _write_manifest(Path(args.manifest).expanduser().resolve(), manifest)
     _print_stats("metadata kb built", stats)
+
+
+def _run_standards(args: argparse.Namespace) -> None:
+    t0 = time.time()
+    if not args.standards_dir:
+        raise ValueError("--standards-dir is required for mode=standards.")
+    standards_dir = Path(args.standards_dir).expanduser().resolve()
+    if not standards_dir.is_dir():
+        raise FileNotFoundError(f"standards-dir does not exist: {standards_dir}")
+    stats = _build_standards_markdown(
+        standards_dir=standards_dir,
+        db_path=Path(args.db_path).expanduser().resolve(),
+        out_zst=Path(args.out_zst).expanduser().resolve(),
+        standards_version=str(args.standards_version or "its-v8std"),
+        max_payload_chars=max(200, int(args.max_payload_chars)),
+        keep_db=bool(args.keep_db),
+    )
+    manifest = {
+        "kind": "standards",
+        "created_at": _now_iso(),
+        "duration_sec": round(time.time() - t0, 3),
+        "source_standards_dir": str(standards_dir),
+        "source_standards_dir_manifest": _path_for_manifest(standards_dir),
+        "standards_version": str(args.standards_version or "its-v8std"),
+        "stats": {
+            "rows_total": stats.rows_total,
+            "domain_counts": stats.domain_counts,
+            "versions_seen": stats.versions_seen,
+            "raw_input_bytes": stats.raw_input_bytes,
+            "db_bytes": stats.db_bytes,
+            "zst_bytes": stats.zst_bytes,
+            "db_path": _path_for_manifest(stats.db_path),
+            "zst_path": _path_for_manifest(stats.zst_path),
+        },
+    }
+    _write_manifest(Path(args.manifest).expanduser().resolve(), manifest)
+    _print_stats("standards kb built", stats)
 
 
 def _run_all(args: argparse.Namespace) -> None:
@@ -934,6 +1076,20 @@ def _parser() -> argparse.ArgumentParser:
             help="Include only these config versions; repeat flag for multiple versions.",
         )
 
+    def add_common_standards_flags(sp: argparse.ArgumentParser) -> None:
+        sp.add_argument(
+            "--standards-dir",
+            type=str,
+            default=None,
+            help="Directory with ITS v8std markdown files.",
+        )
+        sp.add_argument(
+            "--standards-version",
+            type=str,
+            default="its-v8std",
+            help="Version label stored in standards pack rows (default: its-v8std).",
+        )
+
     def add_common_build_flags(sp: argparse.ArgumentParser) -> None:
         sp.add_argument(
             "--work-dir",
@@ -977,6 +1133,16 @@ def _parser() -> argparse.ArgumentParser:
     p_meta.add_argument("--out-zst", type=str, default="artifacts/metadata.kb.db.zst")
     p_meta.add_argument("--manifest", type=str, default="artifacts/metadata.kb.manifest.json")
     p_meta.set_defaults(func=_run_metadata)
+
+    p_std = sub.add_parser(
+        "standards", help="Build ITS standards KB pack (markdown -> standards.kb.db.zst)"
+    )
+    add_common_standards_flags(p_std)
+    add_common_build_flags(p_std)
+    p_std.add_argument("--db-path", type=str, default="build/standards.kb.db")
+    p_std.add_argument("--out-zst", type=str, default="artifacts/standards.kb.db.zst")
+    p_std.add_argument("--manifest", type=str, default="artifacts/standards.kb.manifest.json")
+    p_std.set_defaults(func=_run_standards)
 
     p_all = sub.add_parser("all", help="Build both help and metadata packs")
     add_common_help_flags(p_all)

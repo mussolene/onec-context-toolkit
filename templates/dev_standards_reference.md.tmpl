@@ -1,0 +1,27 @@
+# Onec Dev Standards Reference
+
+## Use this when reviewing or writing 1C code
+
+- naming and readability conventions
+- module and handler structure
+- error handling and side effects
+- maintainability and testability recommendations
+
+## Checklist
+
+1. Confirm platform/API correctness first (`platform` layer).
+2. Confirm project object behavior (`metadata` and `code` layers when needed).
+3. Apply standards and conventions only with explicit source, defaulting to ITS (`its.1c.ru/db/v8std`).
+4. For local ITS snapshot use:
+   - `python scripts/onec_context.py fetch-its-standards --output-dir data/standards/its-v8std`
+5. If no source is available:
+   - mark recommendation as assumption
+   - prefer the most conservative and readable option
+6. State where each rule came from.
+
+## Anti-patterns
+
+- Presenting personal preference as mandatory rule.
+- Mixing platform facts and style guidance in one unmarked statement.
+- Ignoring project conventions when they are documented in the current project.
+- Using non-ITS standards sources without explicit agreement.

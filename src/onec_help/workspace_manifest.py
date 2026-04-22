@@ -90,8 +90,14 @@ def list_targets(manifest: dict[str, Any]) -> list[dict[str, Any]]:
 
 def resolve_target_pack(manifest: dict[str, Any], *, role: str, target: str | None = None) -> str | None:
     targets = manifest_targets(manifest)
-    if role == "platform":
-        return platform_pack(manifest)
+    if role in {"platform", "standards"}:
+        if role == "platform":
+            return platform_pack(manifest)
+        packs = manifest.get("packs") or {}
+        if isinstance(packs, dict):
+            value = packs.get("standards")
+            return value if isinstance(value, str) else None
+        return None
     if not targets:
         return None
     if target is not None:
@@ -129,6 +135,7 @@ def init_args_from_manifest(manifest: dict[str, Any]) -> dict[str, Any]:
         "source_kind": source_kind,
         "metadata_source": optional_sources.get("metadata_export"),
         "hbk_base": optional_sources.get("hbk_base"),
+        "standards_dir": optional_sources.get("standards_dir"),
         "platforms": list(manifest.get("requested_platforms") or []),
         "base_configs": list(manifest.get("base_configs") or []),
         "profile": str(manifest.get("profile") or "base"),

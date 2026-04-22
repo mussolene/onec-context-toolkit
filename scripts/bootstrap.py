@@ -7,6 +7,7 @@ import argparse
 import json
 import subprocess
 import sys
+import re
 from pathlib import Path
 
 
@@ -22,6 +23,27 @@ def _venv_python(venv_dir: Path) -> Path:
     if sys.platform.startswith("win"):
         return venv_dir / "Scripts" / "python.exe"
     return venv_dir / "bin" / "python"
+
+
+def _is_absolute_path_like(value: str) -> bool:
+    text = (value or "").strip()
+    if not text:
+        return False
+    if text.startswith("http://") or text.startswith("https://"):
+        return False
+    if text.startswith("/"):
+        return True
+    return bool(re.match(r"^[A-Za-z]:[\\/]", text))
+
+
+def _public_payload(payload: object) -> object:
+    if isinstance(payload, dict):
+        return {k: _public_payload(v) for k, v in payload.items()}
+    if isinstance(payload, list):
+        return [_public_payload(x) for x in payload]
+    if isinstance(payload, str) and _is_absolute_path_like(payload):
+        return "<redacted-path>"
+    return payload
 
 
 def ensure_venv(venv_dir: Path) -> Path:
@@ -105,6 +127,12 @@ def bootstrap(args: argparse.Namespace) -> dict[str, object]:
             init_cmd.append("--with-code")
         if args.with_full_pack:
             init_cmd.append("--with-full-pack")
+        if args.with_standards:
+            init_cmd.append("--with-standards")
+        if args.standards_dir:
+            init_cmd.extend(["--standards-dir", args.standards_dir])
+        if args.fetch_its_standards:
+            init_cmd.append("--fetch-its-standards")
         if args.without_help:
             init_cmd.append("--without-help")
         _run(init_cmd)
@@ -131,11 +159,14 @@ def main() -> int:
     parser.add_argument("--with-metadata", action="store_true")
     parser.add_argument("--with-code", action="store_true")
     parser.add_argument("--with-full-pack", action="store_true")
+    parser.add_argument("--with-standards", action="store_true")
+    parser.add_argument("--standards-dir", default=None)
+    parser.add_argument("--fetch-its-standards", action="store_true")
     parser.add_argument("--without-help", action="store_true")
     args = parser.parse_args()
 
     result = bootstrap(args)
-    print(json.dumps(result, ensure_ascii=False, indent=2))
+    print(json.dumps(_public_payload(result), ensure_ascii=False, indent=2))
     return 0
 
 

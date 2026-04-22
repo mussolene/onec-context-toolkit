@@ -13,6 +13,7 @@ Toolkit работает как source-first слой локального 1С c
 - экспортирует runtime bundle из уже собранного workspace
 - несёт отдельный supplemental knowledge layer по platform CLI и headless/server workflow
 - несёт отдельные supplemental knowledge layers по query strategy, object explanation и platform fact-check
+- несёт отдельный supplemental knowledge layer по development standards и code conventions для 1С
 
 ## Архитектурная модель
 
@@ -43,7 +44,7 @@ Toolkit работает как source-first слой локального 1С c
 
 - `onec-context` отвечает за workspace lifecycle, packs, local query/runtime flow и source-first toolkit behavior
 - platform CLI, headless build, cluster/standalone administration и похожие темы можно подключать только как supplemental knowledge layer
-- query strategy, object explanation и platform fact-check тоже допустимы как supplemental layers, потому что они усиливают именно локальный toolkit workflow, а не подменяют его
+- query strategy, object explanation, platform fact-check и development standards тоже допустимы как supplemental layers, потому что они усиливают именно локальный toolkit workflow, а не подменяют его
 - supplemental layer допустим только если он напрямую помогает build/init/export/headless/admin сценариям этого toolkit
 - не смешивать supplemental knowledge с pack model, metadata/code/full runtime contract и базовым `onec-context` skill
 - не переносить сюда соседние знания "на всякий случай"; сначала проверить, поддерживают ли они реальные use cases этого repo
@@ -78,6 +79,7 @@ Optional route:
 - `metadata` (`ensure --need metadata` или `--profile metadata`) для реквизитов, типов, табличных частей и форм
 - `code.pack` (`ensure --need code` или `--profile dev`) для анализа логики
 - `config.dump` (`ensure --need full` или `--profile full`) для lossless file-level reads
+- `standards` (`ensure --need standards` + `--with-standards`) для локальной ITS-only базы стандартов разработки
 
 ## Обязательный operational loop
 
@@ -88,7 +90,7 @@ Optional route:
 2. Если `.onec/workspace.manifest.json` отсутствует или stale:
    - `onec-context init --workspace-root <repo> --source-path <repo-or-config-root> --profile base`
 3. Если для ответа не хватает слоя:
-   - `onec-context ensure --workspace-root <repo> --need metadata|code|full`
+   - `onec-context ensure --workspace-root <repo> --need standards|metadata|code|full`
 4. Разрешить точные pack paths:
    - `onec-context resolve-packs --workspace-root <repo>`
 5. Если `resolve-packs` возвращает несколько target'ов, выбрать нужный target по имени и версии
@@ -122,7 +124,7 @@ Agent должен выбирать target осознанно и не хардк
 - `target`
   - какой target выбран; если их несколько и выбор не сделан, это нужно сказать явно
 - `used layers`
-  - какие слои реально использовались: `platform`, `metadata`, `code`, `full`
+  - какие слои реально использовались: `platform`, `standards`, `metadata`, `code`, `full`
 - `confirmed facts`
   - только подтверждённые facts из pack/query results или version-exact platform help
 - `code-derived inferences`
@@ -151,6 +153,7 @@ onec-context status --workspace-root /path/to/workspace --strict
 ```bash
 onec-context ensure --workspace-root /path/to/workspace --need metadata
 onec-context ensure --workspace-root /path/to/workspace --need code
+onec-context ensure --workspace-root /path/to/workspace --need standards
 ```
 
 Разрешить pack paths:
@@ -158,6 +161,7 @@ onec-context ensure --workspace-root /path/to/workspace --need code
 ```bash
 onec-context resolve-packs --workspace-root /path/to/workspace
 onec-context resolve-packs --workspace-root /path/to/workspace --role platform --path-only
+onec-context resolve-packs --workspace-root /path/to/workspace --role standards --path-only
 onec-context resolve-packs --workspace-root /path/to/workspace --role metadata --all-targets
 ```
 
@@ -193,6 +197,12 @@ Verify and benchmark:
 ```bash
 onec-context verify --workspace-root /path/to/workspace
 onec-context benchmark --workspace-root /path/to/workspace --loops 3
+```
+
+ITS standards snapshot (ITS-only):
+
+```bash
+onec-context fetch-its-standards --output-dir /path/to/workspace/data/standards/its-v8std
 ```
 
 ## Карта репозитория

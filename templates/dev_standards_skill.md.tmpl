@@ -1,0 +1,43 @@
+---
+name: onec-dev-standards
+description: Use this supplemental skill for 1C development standards and conventions when writing or reviewing code with the local toolkit.
+---
+
+# Onec Dev Standards
+
+This is a supplemental skill. Use it when the question is about:
+
+- 1C development standards, naming, and module structure conventions
+- code review against style and maintainability rules
+- choosing between "works" and "recommended" implementation patterns
+
+## Core rules
+
+1. Separate platform facts from standards recommendations.
+2. Treat standards claims as confirmed only when there is a concrete source:
+   - ITS standards (`its.1c.ru/db/v8std`)
+   - local project conventions documented in the current project
+   - bundled standards reference in this skill (ITS-first)
+3. If a rule is not confirmed by source, mark it as assumption instead of presenting it as mandatory.
+4. When standards conflict with project-specific conventions, follow project conventions and mention the conflict.
+5. Use ITS (`its.1c.ru/db/v8std`) as the default standards source.
+
+## Practical route
+
+- For platform/API correctness first use `onec-platform-fact-check`.
+- For object behavior and impact use `onec-explain-object`.
+- For coding-style and conventions use this skill and cite the source of each rule.
+- When ITS standards are needed locally, fetch them with:
+  - `python scripts/onec_context.py fetch-its-standards --output-dir data/standards/its-v8std`
+- For disputed cases provide:
+  - confirmed rule
+  - safer alternative
+  - unresolved assumption (if any)
+
+## Output rules
+
+- Keep confirmed facts, recommendations, and assumptions separated.
+- For each recommendation, name the source (project convention, standards reference, or user-provided policy).
+- Avoid absolute wording like "always forbidden" without an explicit source.
+
+See also `reference.md` in this skill folder for the compact checklist.

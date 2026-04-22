@@ -19,12 +19,14 @@ SUPPLEMENTAL_SKILLS = (
     ("onec-query-strategy", "query_strategy_skill.md.tmpl", "query_strategy_reference.md.tmpl"),
     ("onec-explain-object", "explain_object_skill.md.tmpl", "explain_object_reference.md.tmpl"),
     ("onec-platform-fact-check", "platform_fact_check_skill.md.tmpl", "platform_fact_check_reference.md.tmpl"),
+    ("onec-dev-standards", "dev_standards_skill.md.tmpl", "dev_standards_reference.md.tmpl"),
 )
 CURSOR_RULES = (
     ("onec-platform-cli.mdc", "cursor_platform_cli_rule.mdc.tmpl"),
     ("onec-query-strategy.mdc", "cursor_query_strategy_rule.mdc.tmpl"),
     ("onec-explain-object.mdc", "cursor_explain_object_rule.mdc.tmpl"),
     ("onec-platform-fact-check.mdc", "cursor_platform_fact_check_rule.mdc.tmpl"),
+    ("onec-dev-standards.mdc", "cursor_dev_standards_rule.mdc.tmpl"),
 )
 
 
