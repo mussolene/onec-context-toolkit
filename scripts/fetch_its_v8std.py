@@ -12,6 +12,7 @@ import hashlib
 import json
 import os
 import re
+import ssl
 import time
 import unicodedata
 import urllib.request
@@ -60,7 +61,13 @@ def _safe_name(value: str, max_len: int = 80) -> str:
 
 
 def _build_opener(cookie: str | None) -> urllib.request.OpenerDirector:
-    opener = urllib.request.build_opener()
+    try:
+        import certifi
+
+        ssl_context = ssl.create_default_context(cafile=certifi.where())
+    except Exception:
+        ssl_context = ssl.create_default_context()
+    opener = urllib.request.build_opener(urllib.request.HTTPSHandler(context=ssl_context))
     opener.addheaders.append(
         ("User-Agent", "Mozilla/5.0 (compatible; onec-context-its-v8std-fetcher/1.0)")
     )
@@ -346,6 +353,22 @@ def main() -> int:
         delay_sec=args.delay_sec,
     )
     result = save_items(items, Path(args.output_dir).expanduser().resolve())
+    if result["saved"] <= 0:
+        print(
+            json.dumps(
+                {
+                    "source": "its.1c.ru/db/v8std",
+                    "items_total": len(items),
+                    "items_saved": result["saved"],
+                    "output_dir": args.output_dir,
+                    "snapshot_file": Path(result["snapshot"]).name,
+                    "error": "No ITS v8std standards were fetched",
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
+        return 1
     print(
         json.dumps(
             {

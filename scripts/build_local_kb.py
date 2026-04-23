@@ -969,6 +969,8 @@ def _run_standards(args: argparse.Namespace) -> None:
         max_payload_chars=max(200, int(args.max_payload_chars)),
         keep_db=bool(args.keep_db),
     )
+    if stats.rows_total <= 0:
+        raise ValueError(f"No standards rows were built from standards-dir: {standards_dir}")
     manifest = {
         "kind": "standards",
         "created_at": _now_iso(),

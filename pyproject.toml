@@ -10,6 +10,7 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "beautifulsoup4>=4.12",
+    "certifi>=2024.8.30",
     "defusedxml>=0.7",
     "tree-sitter>=0.25",
     "tree-sitter-bsl>=0.1.0",
