@@ -206,10 +206,27 @@ def _looks_like_platform_version(name: str) -> bool:
 def _preferred_hbk_dir(path: Path) -> Path:
     if path.name.lower() == "bin":
         return path
-    bin_dir = path / "bin"
-    if bin_dir.is_dir():
-        return bin_dir
     return path
+
+
+def _find_version_dirs(hbk_base: Path, version: str | None = None) -> list[Path]:
+    wanted = (version or "").strip()
+    found: list[Path] = []
+    seen: set[Path] = set()
+    for child in hbk_base.rglob("*"):
+        if not child.is_dir():
+            continue
+        if wanted:
+            if child.name != wanted:
+                continue
+        elif not _looks_like_platform_version(child.name):
+            continue
+        resolved = child.resolve()
+        if resolved in seen:
+            continue
+        seen.add(resolved)
+        found.append(child)
+    return sorted(found)
 
 
 def _resolve_requested_hbk_sources(hbk_base: Path, versions: list[str]) -> list[tuple[str, str]]:
@@ -220,6 +237,7 @@ def _resolve_requested_hbk_sources(hbk_base: Path, versions: list[str]) -> list[
             hbk_base if hbk_base.name == version else None,
             hbk_base if hbk_base.name.lower() == "bin" and hbk_base.parent.name == version else None,
         ]
+        candidates.extend(_find_version_dirs(hbk_base, version))
         selected: Path | None = None
         for candidate in candidates:
             if candidate is None or not candidate.is_dir():
@@ -242,6 +260,9 @@ def _discover_hbk_sources(hbk_base: Path) -> list[tuple[str, str]]:
         if not _looks_like_platform_version(version):
             continue
         discovered.append((str(_preferred_hbk_dir(child)), version))
+    if not discovered:
+        for child in _find_version_dirs(hbk_base):
+            discovered.append((str(_preferred_hbk_dir(child)), child.name))
     if discovered:
         return discovered
     return [(str(hbk_base), hbk_base.name or "default")]
@@ -530,6 +551,12 @@ def _resolve_help_jsonl_dir(args: argparse.Namespace) -> Path:
     else:
         sources = _discover_hbk_sources(hbk_base)
     langs = parse_languages_env(args.languages)
+    if not collect_hbk_tasks(
+        [(Path(path).expanduser().resolve(), version) for path, version in sources],
+        langs,
+    ):
+        source_list = ", ".join(f"{version}:{path}" for path, version in sources)
+        raise FileNotFoundError(f"No .hbk files found for requested help sources: {source_list}")
 
     run_unpack_sync(
         source_dirs_with_versions=sources,
