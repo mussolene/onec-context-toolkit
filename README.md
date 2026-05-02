@@ -125,6 +125,31 @@ python scripts/onec_context.py ensure --workspace-root /path/to/workspace --need
 status -> init/ensure -> resolve-packs -> query/verify/export
 ```
 
+### MCP для агентов
+
+Для агентов, которым не нужно держать в контексте длинную карту CLI-команд, toolkit даёт компактный stdio MCP server:
+
+```bash
+onec-context-mcp
+```
+
+Из source checkout можно запускать так:
+
+```bash
+python3 scripts/mcp_server.py
+```
+
+MCP tools повторяют тот же lifecycle и pack contract, но принимают короткие JSON arguments:
+
+- `onec_status`
+- `onec_ensure`
+- `onec_resolve_packs`
+- `onec_query_kb`
+- `onec_query_code`
+- `onec_query_config`
+
+Для target-bound слоёв (`metadata`, `code`, `full`) server сохраняет правило явного выбора target: если pack path неоднозначен, tool вернёт ошибку и попросит передать `target` или `all_targets=true`.
+
 Практические команды:
 
 ```bash

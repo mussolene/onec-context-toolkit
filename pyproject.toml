@@ -21,6 +21,7 @@ dependencies = [
 onec-context = "scripts.onec_context:main"
 onec-bootstrap = "scripts.bootstrap:main"
 onec-install-agent = "scripts.install_agent:main"
+onec-context-mcp = "scripts.mcp_server:main"
 
 [tool.setuptools]
 include-package-data = true
