@@ -231,32 +231,42 @@ onec-context verify --workspace-root .
 onec-context export --workspace-root . --archive
 ```
 
-<!-- repo-task-proof-loop:start -->
-## Repo task proof loop
+## OACS / ACS development workflow
 
-For substantial features, refactors, and bug fixes, use the repo-task-proof-loop workflow.
-
-Required artifact path:
-- Keep all task artifacts in `.agent/tasks/<TASK_ID>/` inside this repository.
+For substantial features, refactors, bug fixes, and release work, use OACS/ACS
+for governed local development memory and evidence instead of writing a
+repo-local sidecar artifact tree.
 
 Required sequence:
-1. Freeze `.agent/tasks/<TASK_ID>/spec.md` before implementation.
-2. Implement against explicit acceptance criteria (`AC1`, `AC2`, ...).
-3. Create `evidence.md`, `evidence.json`, and raw artifacts.
-4. Run a fresh verification pass against the current codebase and rerun checks.
-5. If verification is not `PASS`, write `problems.md`, apply the smallest safe fix, and reverify.
+
+1. State the task scope and explicit acceptance criteria (`AC1`, `AC2`, ...)
+   before implementation.
+2. Build or inspect repo context through OACS when prior project memory matters:
+   `acs context build --intent repo_development --scope project --json`.
+3. Treat command outputs, external retrieval, CI results, package publication
+   results, and other canonical project facts as evidence:
+   `acs tool ingest-result ...`.
+4. Use `acs evidence inspect <ev_...>` and
+   `acs evidence list --kind tool_result --json` for proof/debugging.
+5. If evidence should become durable project knowledge, distill it into memory
+   and attach the evidence ref with `acs memory sharpen`.
+6. Run a fresh verification pass against the current codebase and rerun the
+   relevant checks.
+7. If verification is not `PASS`, explain the problem, apply the smallest safe
+   fix, and reverify.
 
 Hard rules:
-- Do not claim completion unless every acceptance criterion is `PASS`.
-- Verifiers judge current code and current command results, not prior chat claims.
-- Fixers should make the smallest defensible diff.
-- For broad Codex tasks, bounded fan-out is allowed only after `init`, only when the user has explicitly asked for delegation or parallel agent work, and only when task shape warrants it: use bounded `explorer` children before or after spec freeze, use bounded `worker` children only after the spec is frozen, keep the task tree shallow, keep evidence ownership with one builder, and keep verdict ownership with one fresh verifier.
-- This root `AGENTS.md` block is the repo-wide Codex baseline. More-specific nested `AGENTS.override.md` or `AGENTS.md` files still take precedence for their directory trees.
-- Keep this block lean. If the workflow needs more Codex guidance, prefer nested `AGENTS.md` / `AGENTS.override.md` files or configured fallback guide docs instead of expanding this root block indefinitely.
 
-Installed workflow agents:
-- `.codex/agents/task-spec-freezer.toml`
-- `.codex/agents/task-builder.toml`
-- `.codex/agents/task-verifier.toml`
-- `.codex/agents/task-fixer.toml`
-<!-- repo-task-proof-loop:end -->
+- Do not claim completion unless every acceptance criterion is `PASS`.
+- Verifiers judge current code and current command results, not prior chat
+  claims.
+- Fixes should be the smallest defensible diff.
+- OACS is not the tool orchestrator. It records external tool results as
+  governed evidence/context for agents to use.
+- Standalone tool-result evidence does not enter `ContextCapsule.evidence_refs`
+  by itself. It is projected only through included memories that reference it.
+- Do not commit `.agent/tasks`, raw local proof artifacts, `.oacs`, local
+  databases, passphrases, or other private agent state.
+- This root `AGENTS.md` block is the repo-wide Codex baseline. More-specific
+  nested `AGENTS.override.md` or `AGENTS.md` files still take precedence for
+  their directory trees.
