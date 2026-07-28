@@ -4,6 +4,8 @@
 
 `onec-context-toolkit` превращает 1С-репозиторий в локальный source-first context для агентов. Он ставит self-contained integration в `Codex`, `Claude`, `Cursor`, собирает workspace packs в `.onec/` из `ConfigDump` и `HBK`, а затем умеет экспортировать read-only runtime bundle для offline lookup.
 
+Место toolkit среди соседних компонентов зафиксировано в [общей карте экосистемы](https://github.com/mussolene/1c_hbk_bsl#место-в-экосистеме). Этот репозиторий отвечает за source-first сборку и проверку version/target-bound packs из `HBK` и `ConfigDump`; редакторная навигация и владение runtime-контейнером остаются за пределами его роли.
+
 ![Workflow](docs/readme/workflow.svg)
 
 ## Что это даёт
