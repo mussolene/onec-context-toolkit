@@ -1,13 +1,11 @@
 ---
-description: 1C query routing across platform, metadata, code, and full packs
+description: Choose a local knowledge layer for a 1C question.
 globs:
 alwaysApply: false
 ---
 
-- Start with `python {skill_rel_root}/scripts/onec_context.py status --workspace-root . --strict` and `resolve-packs`; do not guess pack filenames.
-- Prefer the cheapest exact layer first:
-  - `platform` for platform syntax and built-in API
-  - `metadata` for objects, requisites, types, tabular sections, forms, and commands
-  - `code` only when behavior, callers, handlers, or influence must be traced
-  - `full` only for raw XML or exact source reads
-- If multiple targets exist, choose the right target by name and version before querying.
+Read `{skill_rel_root}/references/query-strategy.md` when relevant.
+Use the main skill's tools at `{skill_rel_root}/scripts/onec_context.py`.
+Choose the required source, version and configuration before querying.
+Use existing packs first; prepare missing layers with `ensure` only when needed.
+Separate retrieved facts, deductions and unresolved assumptions.

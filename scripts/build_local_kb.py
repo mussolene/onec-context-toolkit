@@ -15,11 +15,13 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import re
 import sqlite3
 import subprocess
 import sys
 import time
+import tempfile
 from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
@@ -111,30 +113,46 @@ def _has_any_version(row: dict[str, Any], selected_versions: set[str]) -> bool:
 
 
 def _text_payload_from_help_row(row: dict[str, Any], max_chars: int) -> str:
-    parts = [
-        _compact_text(row.get("summary"), max_chars=max_chars),
-        _compact_text(row.get("description"), max_chars=max_chars),
-        _compact_text(row.get("signature"), max_chars=max_chars),
-        _compact_text(row.get("syntax"), max_chars=max_chars),
-        _compact_text(row.get("purpose"), max_chars=max_chars),
-        _compact_text(row.get("returns"), max_chars=max_chars),
-        _compact_text(row.get("exceptions"), max_chars=max_chars),
-        _compact_text(row.get("text"), max_chars=max_chars),
-    ]
-    merged = " ".join(p for p in parts if p)
-    return _compact_text(merged, max_chars=max_chars)
+    # Search text is a preview; the original structured record is stored separately.
+    fields = (
+        "summary",
+        "description",
+        "signature",
+        "syntax",
+        "purpose",
+        "params",
+        "returns",
+        "availability",
+        "restrictions",
+        "exceptions",
+        "text",
+        "code",
+    )
+    parts = []
+    for key in fields:
+        value = row.get(key)
+        if value:
+            text = (
+                json.dumps(value, ensure_ascii=False)
+                if isinstance(value, (dict, list))
+                else str(value)
+            )
+            parts.append(f"{key}: {text}")
+    return _compact_text("\n".join(parts), max_chars=max_chars)
 
 
 def _jsonl_iter(path: Path):
     with path.open("r", encoding="utf-8") as fp:
-        for raw in fp:
+        for number, raw in enumerate(fp, 1):
             line = raw.strip()
             if not line:
                 continue
             try:
                 yield json.loads(line)
-            except json.JSONDecodeError:
-                continue
+            except json.JSONDecodeError as exc:
+                raise ValueError(
+                    f"Invalid JSONL in {path.name}, line {number}"
+                ) from exc
 
 
 def _iter_markdown_files(root: Path):
@@ -146,7 +164,9 @@ def _iter_markdown_files(root: Path):
         yield path
 
 
-def _extract_md_title_description(markdown_text: str, fallback_title: str) -> tuple[str, str]:
+def _extract_md_title_description(
+    markdown_text: str, fallback_title: str
+) -> tuple[str, str]:
     text = ITS_FRONTMATTER_RE.sub("", markdown_text.strip())
     title = fallback_title
     for line in text.splitlines():
@@ -229,13 +249,17 @@ def _find_version_dirs(hbk_base: Path, version: str | None = None) -> list[Path]
     return sorted(found)
 
 
-def _resolve_requested_hbk_sources(hbk_base: Path, versions: list[str]) -> list[tuple[str, str]]:
+def _resolve_requested_hbk_sources(
+    hbk_base: Path, versions: list[str]
+) -> list[tuple[str, str]]:
     sources: list[tuple[str, str]] = []
     for version in versions:
         candidates = [
             hbk_base / version,
             hbk_base if hbk_base.name == version else None,
-            hbk_base if hbk_base.name.lower() == "bin" and hbk_base.parent.name == version else None,
+            hbk_base
+            if hbk_base.name.lower() == "bin" and hbk_base.parent.name == version
+            else None,
         ]
         candidates.extend(_find_version_dirs(hbk_base, version))
         selected: Path | None = None
@@ -250,7 +274,9 @@ def _resolve_requested_hbk_sources(hbk_base: Path, versions: list[str]) -> list[
 
 
 def _discover_hbk_sources(hbk_base: Path) -> list[tuple[str, str]]:
-    if hbk_base.name.lower() == "bin" and _looks_like_platform_version(hbk_base.parent.name):
+    if hbk_base.name.lower() == "bin" and _looks_like_platform_version(
+        hbk_base.parent.name
+    ):
         return [(str(hbk_base), hbk_base.parent.name)]
     if _looks_like_platform_version(hbk_base.name):
         return [(str(_preferred_hbk_dir(hbk_base)), hbk_base.name)]
@@ -266,6 +292,45 @@ def _discover_hbk_sources(hbk_base: Path) -> list[tuple[str, str]]:
     if discovered:
         return discovered
     return [(str(hbk_base), hbk_base.name or "default")]
+
+
+def help_source_snapshot(
+    hbk_base: Path, versions: list[str], languages: str = "ru"
+) -> dict:
+    """Bind a reusable help pack to exact source bytes and extractor implementation."""
+    sources = (
+        _resolve_requested_hbk_sources(hbk_base, versions)
+        if versions
+        else _discover_hbk_sources(hbk_base)
+    )
+    if versions and set(versions) != {v for _, v in sources}:
+        raise ValueError(
+            "Some requested platform versions are missing from the HBK source"
+        )
+    tasks = collect_hbk_tasks(
+        [(Path(p), v) for p, v in sources], parse_languages_env(languages)
+    )
+    if not tasks:
+        raise ValueError("No matching HBK files in the source")
+    files = [
+        {
+            "path": str(p.relative_to(hbk_base)),
+            "version": v,
+            "language": lang,
+            "sha256": _file_sha256(p),
+        }
+        for p, v, lang in tasks
+    ]
+    implementation = hashlib.sha256()
+    for folder in (
+        SRC_DIR / "onec_help" / "help_core",
+        SRC_DIR / "onec_help" / "knowledge",
+    ):
+        for path in sorted(folder.glob("*.py")):
+            implementation.update(path.name.encode())
+            implementation.update(path.read_bytes())
+    implementation.update(Path(__file__).read_bytes())
+    return {"files": files, "builder": implementation.hexdigest(), "schema_version": 2}
 
 
 def _write_hbk_info(
@@ -341,7 +406,10 @@ def run_unpack_sync(
 
     output_base = Path(output_dir).expanduser().resolve()
     output_base.mkdir(parents=True, exist_ok=True)
-    pairs = [(Path(path).expanduser().resolve(), version) for path, version in source_dirs_with_versions]
+    pairs = [
+        (Path(path).expanduser().resolve(), version)
+        for path, version in source_dirs_with_versions
+    ]
     tasks = collect_hbk_tasks(pairs, languages)
     count = 0
     for path, version, language in tasks:
@@ -395,7 +463,10 @@ def _create_docs_db(db_path: Path) -> sqlite3.Connection:
             topic_path TEXT,
             version TEXT,
             versions_json TEXT,
-            payload TEXT
+            payload TEXT,
+            record_json TEXT NOT NULL DEFAULT '{}',
+            name_key TEXT,
+            topic_key TEXT
         )
         """
     )
@@ -405,23 +476,75 @@ def _create_docs_db(db_path: Path) -> sqlite3.Connection:
         USING fts5(name, payload, content='docs', content_rowid='id')
         """
     )
+    cur.execute("PRAGMA user_version=2")
     con.commit()
     return con
 
 
+def _record_search_text(value: Any) -> str:
+    """Index decoded values so escaped JSON newlines cannot merge search tokens."""
+    if isinstance(value, dict):
+        return " ".join(
+            f"{key} {_record_search_text(item)}" for key, item in value.items()
+        )
+    if isinstance(value, list):
+        return " ".join(_record_search_text(item) for item in value)
+    return "" if value is None else str(value)
+
+
 def _finalize_docs_db(con: sqlite3.Connection) -> None:
     cur = con.cursor()
-    cur.execute("INSERT INTO docs_fts(rowid, name, payload) SELECT id, name, payload FROM docs")
+    if cur.execute("SELECT count(*) FROM docs").fetchone()[0] == 0:
+        raise ValueError(
+            "No knowledge records were built; refusing to publish an empty pack"
+        )
+    reader = con.execute("SELECT id, name, topic_path FROM docs")
+    while rows := reader.fetchmany(2000):
+        cur.executemany(
+            "UPDATE docs SET name_key=?, topic_key=? WHERE id=?",
+            [
+                ((name or "").casefold(), (topic or "").casefold(), rid)
+                for rid, name, topic in rows
+            ],
+        )
+    cur.execute("CREATE INDEX idx_docs_name_key ON docs(name_key)")
+    cur.execute("CREATE INDEX idx_docs_topic_key ON docs(topic_key)")
+    cur.execute(
+        "CREATE TABLE doc_versions(doc_id INTEGER, version TEXT, PRIMARY KEY(version, doc_id))"
+    )
+    cur.execute(
+        "INSERT OR IGNORE INTO doc_versions SELECT docs.id, j.value FROM docs, json_each(docs.versions_json) j"
+    )
+    reader = con.execute("SELECT id, name, payload, record_json FROM docs")
+    while rows := reader.fetchmany(2000):
+        cur.executemany(
+            "INSERT INTO docs_fts(rowid, name, payload) VALUES (?, ?, ?)",
+            [
+                (rid, name, payload + " " + _record_search_text(json.loads(record)))
+                for rid, name, payload, record in rows
+            ],
+        )
     cur.execute("CREATE INDEX idx_docs_domain ON docs(domain)")
     cur.execute("CREATE INDEX idx_docs_version ON docs(version)")
     con.commit()
     cur.execute("VACUUM")
     con.commit()
+    if cur.execute("PRAGMA quick_check").fetchone()[0] != "ok":
+        raise ValueError("Built SQLite pack failed integrity validation")
 
 
 def _pack_zstd(src_db: Path, out_zst: Path) -> int:
     _ensure_parent(out_zst)
-    return zstd_compress_path(src_db, out_zst, level=19)
+    _ensure_parent(out_zst)
+    fd, name = tempfile.mkstemp(prefix=".onec-pack-", suffix=".tmp", dir=out_zst.parent)
+    os.close(fd)
+    staging = Path(name)
+    try:
+        size = zstd_compress_path(src_db, staging, level=6)
+        os.replace(staging, out_zst)
+        return size
+    finally:
+        staging.unlink(missing_ok=True)
 
 
 def _build_help_jsonl(
@@ -446,7 +569,7 @@ def _build_help_jsonl(
             continue
         domain = file_name.replace(".jsonl", "")
         raw_input_bytes += path.stat().st_size
-        batch: list[tuple[str, str, str, str, str, str]] = []
+        batch: list[tuple[str, str, str, str, str, str, str]] = []
         for row in _jsonl_iter(path):
             if not _has_any_version(row, selected_versions):
                 continue
@@ -471,13 +594,14 @@ def _build_help_jsonl(
                 primary_version,
                 json.dumps(versions, ensure_ascii=False),
                 payload,
+                json.dumps(row, ensure_ascii=False, separators=(",", ":")),
             )
             batch.append(item)
             if len(batch) >= 2000:
                 cur.executemany(
                     """
-                    INSERT INTO docs(domain, name, topic_path, version, versions_json, payload)
-                    VALUES(?, ?, ?, ?, ?, ?)
+                    INSERT INTO docs(domain, name, topic_path, version, versions_json, payload, record_json)
+                    VALUES(?, ?, ?, ?, ?, ?, ?)
                     """,
                     batch,
                 )
@@ -487,8 +611,8 @@ def _build_help_jsonl(
         if batch:
             cur.executemany(
                 """
-                INSERT INTO docs(domain, name, topic_path, version, versions_json, payload)
-                VALUES(?, ?, ?, ?, ?, ?)
+                INSERT INTO docs(domain, name, topic_path, version, versions_json, payload, record_json)
+                VALUES(?, ?, ?, ?, ?, ?, ?)
                 """,
                 batch,
             )
@@ -556,7 +680,9 @@ def _resolve_help_jsonl_dir(args: argparse.Namespace) -> Path:
         langs,
     ):
         source_list = ", ".join(f"{version}:{path}" for path, version in sources)
-        raise FileNotFoundError(f"No .hbk files found for requested help sources: {source_list}")
+        raise FileNotFoundError(
+            f"No .hbk files found for requested help sources: {source_list}"
+        )
 
     run_unpack_sync(
         source_dirs_with_versions=sources,
@@ -594,7 +720,9 @@ def _resolve_metadata_snapshot_dirs(args: argparse.Namespace) -> list[Path]:
         if manifest_path.is_file():
             try:
                 manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-                if str(manifest.get("format") or "").startswith("onec_config_snapshot_"):
+                if str(manifest.get("format") or "").startswith(
+                    "onec_config_snapshot_"
+                ):
                     return [base]
             except (OSError, ValueError, TypeError):
                 pass
@@ -610,10 +738,16 @@ def _resolve_metadata_snapshot_dirs(args: argparse.Namespace) -> list[Path]:
         source = Path(args.config_source).expanduser().resolve()
         if not source.exists():
             raise FileNotFoundError(f"config-source does not exist: {source}")
-        config_roots = [source] if is_config_source_root(source) else find_config_roots(source)
+        config_roots = (
+            [source] if is_config_source_root(source) else find_config_roots(source)
+        )
         if not config_roots:
-            raise FileNotFoundError(f"No Configuration.xml roots found in config-source: {source}")
-        output_root = Path(args.work_dir).expanduser().resolve() / "config_metadata_snapshot"
+            raise FileNotFoundError(
+                f"No Configuration.xml roots found in config-source: {source}"
+            )
+        output_root = (
+            Path(args.work_dir).expanduser().resolve() / "config_metadata_snapshot"
+        )
         output_root.mkdir(parents=True, exist_ok=True)
         out_dirs: list[Path] = []
         infos = [get_config_source_info(config_root) for config_root in config_roots]
@@ -625,13 +759,20 @@ def _resolve_metadata_snapshot_dirs(args: argparse.Namespace) -> list[Path]:
         for idx, info in enumerate(infos, start=1):
             target_name = source_identity_stem(info)
             if counts[target_name] > 1:
-                suffix = re.sub(r"[^\w.-]+", "-", Path(info.source_root).name.lower()).strip("._-") or f"root-{idx}"
+                suffix = (
+                    re.sub(r"[^\w.-]+", "-", Path(info.source_root).name.lower()).strip(
+                        "._-"
+                    )
+                    or f"root-{idx}"
+                )
                 target_name = f"{target_name}.{suffix}"
                 if target_name in used:
                     target_name = f"{target_name}.{idx}"
             used.add(target_name)
             out_dir = output_root / target_name.lower()
-            out_dirs.append(build_snapshot_from_config_source(Path(info.source_root), out_dir))
+            out_dirs.append(
+                build_snapshot_from_config_source(Path(info.source_root), out_dir)
+            )
         return out_dirs
 
     if not args.metadata_source:
@@ -686,10 +827,16 @@ def _metadata_payload_field(row: dict[str, Any], max_payload_chars: int) -> str:
         _compact_text(row.get("object_name"), max_chars=max_payload_chars),
         _compact_text(field_name, max_chars=max_payload_chars),
         _compact_text(row.get("synonym"), max_chars=max_payload_chars),
-        _compact_text(row.get("kind") or row.get("field_kind"), max_chars=max_payload_chars),
-        _compact_text(row.get("group") or row.get("group_name"), max_chars=max_payload_chars),
+        _compact_text(
+            row.get("kind") or row.get("field_kind"), max_chars=max_payload_chars
+        ),
+        _compact_text(
+            row.get("group") or row.get("group_name"), max_chars=max_payload_chars
+        ),
         _compact_text(row.get("tabular_section"), max_chars=max_payload_chars),
-        _compact_text(row.get("type") or row.get("type_presentation"), max_chars=max_payload_chars),
+        _compact_text(
+            row.get("type") or row.get("type_presentation"), max_chars=max_payload_chars
+        ),
         _compact_text(row.get("defined_type"), max_chars=max_payload_chars),
         _compact_text(row.get("constant_bsl_hint"), max_chars=max_payload_chars),
     ]
@@ -704,20 +851,28 @@ def _metadata_field_identity(row: dict[str, Any]) -> tuple[str, str]:
     form_name = str(row.get("form_name") or "").strip()
 
     if group_name == "tabular_sections":
-        topic_path = f"{object_id}.{field_name}" if object_id and field_name else object_id
+        topic_path = (
+            f"{object_id}.{field_name}" if object_id and field_name else object_id
+        )
         return field_name, topic_path
 
     if group_name == "tabular_section_requisites":
         display_name = (
-            f"{tabular_section}.{field_name}" if tabular_section and field_name else field_name
+            f"{tabular_section}.{field_name}"
+            if tabular_section and field_name
+            else field_name
         )
-        topic_parts = [part for part in (object_id, tabular_section, field_name) if part]
+        topic_parts = [
+            part for part in (object_id, tabular_section, field_name) if part
+        ]
         return display_name, ".".join(topic_parts)
 
     if group_name in {"form_attributes", "form_commands"}:
         display_parts = [part for part in (form_name, field_name) if part]
         display_name = ".".join(display_parts) if display_parts else field_name
-        topic_parts = [part for part in (object_id, "Forms", form_name, field_name) if part]
+        topic_parts = [
+            part for part in (object_id, "Forms", form_name, field_name) if part
+        ]
         return display_name, ".".join(topic_parts)
 
     topic_path = f"{object_id}.{field_name}" if object_id and field_name else object_id
@@ -744,7 +899,9 @@ def _build_metadata_jsonl(
         manifest_path = snapshot_dir / "manifest.json"
         objects_path = snapshot_dir / "objects.jsonl"
         fields_path = snapshot_dir / "fields.jsonl"
-        if not (manifest_path.is_file() and objects_path.is_file() and fields_path.is_file()):
+        if not (
+            manifest_path.is_file() and objects_path.is_file() and fields_path.is_file()
+        ):
             continue
 
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
@@ -753,7 +910,9 @@ def _build_metadata_jsonl(
             continue
 
         raw_input_bytes += (
-            manifest_path.stat().st_size + objects_path.stat().st_size + fields_path.stat().st_size
+            manifest_path.stat().st_size
+            + objects_path.stat().st_size
+            + fields_path.stat().st_size
         )
 
         for row in _jsonl_iter(objects_path):
@@ -762,8 +921,8 @@ def _build_metadata_jsonl(
             topic_path = str(row.get("path") or row.get("id") or "").strip()
             cur.execute(
                 """
-                INSERT INTO docs(domain, name, topic_path, version, versions_json, payload)
-                VALUES(?, ?, ?, ?, ?, ?)
+                INSERT INTO docs(domain, name, topic_path, version, versions_json, payload, record_json)
+                VALUES(?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     "metadata_objects",
@@ -772,6 +931,7 @@ def _build_metadata_jsonl(
                     cfg_version,
                     json.dumps([cfg_version], ensure_ascii=False),
                     payload,
+                    json.dumps(row, ensure_ascii=False),
                 ),
             )
             rows_total += 1
@@ -783,8 +943,8 @@ def _build_metadata_jsonl(
             name, topic_path = _metadata_field_identity(row)
             cur.execute(
                 """
-                INSERT INTO docs(domain, name, topic_path, version, versions_json, payload)
-                VALUES(?, ?, ?, ?, ?, ?)
+                INSERT INTO docs(domain, name, topic_path, version, versions_json, payload, record_json)
+                VALUES(?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     "metadata_fields",
@@ -793,6 +953,7 @@ def _build_metadata_jsonl(
                     cfg_version,
                     json.dumps([cfg_version], ensure_ascii=False),
                     payload,
+                    json.dumps(row, ensure_ascii=False),
                 ),
             )
             rows_total += 1
@@ -846,7 +1007,9 @@ def _build_standards_markdown(
             continue
         raw_input_bytes += md_file.stat().st_size
         rel = str(md_file.relative_to(standards_dir)).replace("\\", "/")
-        title, desc = _extract_md_title_description(content, fallback_title=md_file.stem)
+        title, desc = _extract_md_title_description(
+            content, fallback_title=md_file.stem
+        )
         payload = _compact_text(
             " ".join(
                 p
@@ -860,8 +1023,8 @@ def _build_standards_markdown(
         )
         cur.execute(
             """
-            INSERT INTO docs(domain, name, topic_path, version, versions_json, payload)
-            VALUES(?, ?, ?, ?, ?, ?)
+            INSERT INTO docs(domain, name, topic_path, version, versions_json, payload, record_json)
+            VALUES(?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 "standards",
@@ -870,6 +1033,7 @@ def _build_standards_markdown(
                 standards_version,
                 json.dumps([standards_version], ensure_ascii=False),
                 payload,
+                json.dumps({"description": desc, "text": content}, ensure_ascii=False),
             ),
         )
         rows_total += 1
@@ -915,7 +1079,48 @@ def _print_stats(title: str, stats: BuildStats) -> None:
 
 def _run_help(args: argparse.Namespace) -> None:
     t0 = time.time()
-    jsonl_dir = _resolve_help_jsonl_dir(args)
+    args.source_snapshot = (
+        help_source_snapshot(
+            Path(args.hbk_base).expanduser().resolve(),
+            list(args.platform),
+            args.languages,
+        )
+        if args.hbk_base and not args.help_jsonl_dir
+        else None
+    )
+    with tempfile.TemporaryDirectory(prefix="onec-help-") as scratch:
+        build_args = argparse.Namespace(**vars(args))
+        build_args.work_dir = scratch
+        print(
+            "Platform help: extracting and parsing source...",
+            file=sys.stderr,
+            flush=True,
+        )
+        jsonl_dir = _resolve_help_jsonl_dir(build_args)
+        destination_db = Path(args.db_path).expanduser().resolve()
+        destination_db.parent.mkdir(parents=True, exist_ok=True)
+        # All unfinished database files belong to this invocation, including failures.
+        with tempfile.TemporaryDirectory(
+            prefix=".onec-build-", dir=destination_db.parent
+        ) as staging:
+            build_args.db_path = str(Path(staging) / "help.db")
+            build_args.manifest = str(Path(staging) / "manifest.json")
+            print(
+                "Platform help: indexing and compressing...",
+                file=sys.stderr,
+                flush=True,
+            )
+            _finish_help(build_args, jsonl_dir, t0)
+            manifest = json.loads(Path(build_args.manifest).read_text())
+            manifest["stats"]["db_path"] = _path_for_manifest(destination_db)
+            if args.keep_db:
+                os.replace(build_args.db_path, destination_db)
+            else:
+                destination_db.unlink(missing_ok=True)
+            _write_manifest(Path(args.manifest).expanduser().resolve(), manifest)
+
+
+def _finish_help(args: argparse.Namespace, jsonl_dir: Path, t0: float) -> None:
     versions = set(args.platform or [])
     stats = _build_help_jsonl(
         jsonl_dir=jsonl_dir,
@@ -927,6 +1132,8 @@ def _run_help(args: argparse.Namespace) -> None:
     )
     manifest = {
         "kind": "help",
+        "schema_version": 2,
+        "source_snapshot": args.source_snapshot,
         "created_at": _now_iso(),
         "duration_sec": round(time.time() - t0, 3),
         "source_jsonl_dir": str(jsonl_dir),
@@ -961,6 +1168,7 @@ def _run_metadata(args: argparse.Namespace) -> None:
     )
     manifest = {
         "kind": "metadata",
+        "schema_version": 2,
         "created_at": _now_iso(),
         "duration_sec": round(time.time() - t0, 3),
         "snapshot_dirs": [str(p) for p in snapshot_dirs],
@@ -997,9 +1205,12 @@ def _run_standards(args: argparse.Namespace) -> None:
         keep_db=bool(args.keep_db),
     )
     if stats.rows_total <= 0:
-        raise ValueError(f"No standards rows were built from standards-dir: {standards_dir}")
+        raise ValueError(
+            f"No standards rows were built from standards-dir: {standards_dir}"
+        )
     manifest = {
         "kind": "standards",
+        "schema_version": 2,
         "created_at": _now_iso(),
         "duration_sec": round(time.time() - t0, 3),
         "source_standards_dir": str(standards_dir),
@@ -1160,17 +1371,22 @@ def _parser() -> argparse.ArgumentParser:
     add_common_build_flags(p_meta)
     p_meta.add_argument("--db-path", type=str, default="build/metadata.kb.db")
     p_meta.add_argument("--out-zst", type=str, default="artifacts/metadata.kb.db.zst")
-    p_meta.add_argument("--manifest", type=str, default="artifacts/metadata.kb.manifest.json")
+    p_meta.add_argument(
+        "--manifest", type=str, default="artifacts/metadata.kb.manifest.json"
+    )
     p_meta.set_defaults(func=_run_metadata)
 
     p_std = sub.add_parser(
-        "standards", help="Build ITS standards KB pack (markdown -> standards.kb.db.zst)"
+        "standards",
+        help="Build ITS standards KB pack (markdown -> standards.kb.db.zst)",
     )
     add_common_standards_flags(p_std)
     add_common_build_flags(p_std)
     p_std.add_argument("--db-path", type=str, default="build/standards.kb.db")
     p_std.add_argument("--out-zst", type=str, default="artifacts/standards.kb.db.zst")
-    p_std.add_argument("--manifest", type=str, default="artifacts/standards.kb.manifest.json")
+    p_std.add_argument(
+        "--manifest", type=str, default="artifacts/standards.kb.manifest.json"
+    )
     p_std.set_defaults(func=_run_standards)
 
     p_all = sub.add_parser("all", help="Build both help and metadata packs")
@@ -1179,9 +1395,13 @@ def _parser() -> argparse.ArgumentParser:
     add_common_build_flags(p_all)
     p_all.add_argument("--help-db-path", type=str, default="build/kb.db")
     p_all.add_argument("--help-out-zst", type=str, default="artifacts/kb.db.zst")
-    p_all.add_argument("--help-manifest", type=str, default="artifacts/kb.manifest.json")
+    p_all.add_argument(
+        "--help-manifest", type=str, default="artifacts/kb.manifest.json"
+    )
     p_all.add_argument("--metadata-db-path", type=str, default="build/metadata.kb.db")
-    p_all.add_argument("--metadata-out-zst", type=str, default="artifacts/metadata.kb.db.zst")
+    p_all.add_argument(
+        "--metadata-out-zst", type=str, default="artifacts/metadata.kb.db.zst"
+    )
     p_all.add_argument(
         "--metadata-manifest", type=str, default="artifacts/metadata.kb.manifest.json"
     )

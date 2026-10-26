@@ -1,27 +1,44 @@
 # Onec Context Bundle
 
-Этот bundle собран из workspace `{workspace_label}`.
+Пакет подготовлен из проекта `{workspace_label}`. Тип источника: `{source_kind}`.
+Это готовые данные и инструменты чтения. Для пересборки нужен Onec Context Toolkit
+и доступ к исходным данным.
 
-Источник:
-- `source_kind`: `{source_kind}`
+## Начало работы
 
-Что внутри:
-- `SKILL.md` — runtime-инструкция для локального agent skill
-- `docs/1c-platform-cli.md` — отдельная выжимка по platform CLI, `1cv8`, `CREATEINFOBASE`, `ibcmd`, `ibsrv`, `ragent`, `rac`, `ras`
-- `references/` — condensed runtime references для routing, object tracing, fact-check и dev standards
-- `tools/` — query и verify utilities
-- `artifacts/` — готовые compact packs и их manifest'ы
-- `bundle.manifest.json` — карта bundle pack'ов по ролям (`packs.platform`, `targets.*.packs.*`)
+Нужен Python 3.11+ и поддержка Zstandard. Для Python до 3.14 рекомендуется
+модуль `zstandard`; в Python 3.14 есть `compression.zstd`. Средство совместимости
+также поддерживает установленный `zstd`. Автоматической установки зависимостей
+в этом пакете нет. Подготовьте окружение до автономного использования.
 
-Базовое использование:
+Выполняйте команды из корня пакета:
 
-```bash
-python3 tools/verify_local_kb.py --artifacts-dir ./artifacts
+```sh
 python3 tools/resolve_packs.py --bundle-dir .
+python3 tools/verify_local_kb.py --artifacts-dir ./artifacts
 ```
 
-Замечания:
-- Этот bundle не пересобирает packs сам по себе; для rebuild нужен source repo.
-- Если в bundle несколько target'ов, сначала выбери нужный target по имени и версии.
-- `targets.*.packs.metadata`, `targets.*.packs.code`, и `targets.*.packs.full` могут отсутствовать в минимальном bundle.
-- Runtime этого bundle опирается в первую очередь на Python zstd backend, а не на внешний `zstd` CLI.
+Выберите роль и, при нескольких конфигурациях, идентификатор `target` из карты.
+Передайте разрешённый путь нужному инструменту через `--db`. Пример запроса
+платформы после определения пути:
+
+```sh
+python3 tools/local_kb_query.py --db /path/to/platform-pack.db.zst --q 'Структура.Вставить' --exact --json
+```
+
+## Состав и ограничения
+
+- `SKILL.md`: инструкция агенту.
+- `tools/`: поиск, разрешение путей и проверки; `tools/1c/` требует отдельной платформы.
+- `references/`: рекомендации по поиску, разбору кода и стандартам.
+- `docs/1c-platform-cli.md`: команды платформы и границы их применения.
+- `artifacts/`: включённые пакеты и их описания.
+- `bundle.manifest.json`: роли `packs.platform`, `packs.standards` и `targets.*.packs.*`.
+
+Состав зависит от проекта: любой дополнительный слой может отсутствовать.
+Проверка `verify` является ограниченной проверкой пакетов, а не тестом кода 1С.
+SQLite извлекается в локальный кэш; размер архива не равен занятому месту после
+первого чтения. Расположение кэша задаётся `ONEC_CONTEXT_CACHE_DIR`.
+Полный результат поиска содержит сохранённую запись, а не исходный HTML.
+Исходные материалы платформы, ITS и конфигурации нельзя считать публичными
+только потому, что они включены в переносимый пакет.

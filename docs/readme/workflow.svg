@@ -1,67 +1,17 @@
-<svg width="1200" height="500" viewBox="0 0 1200 500" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop stop-color="#0F172A"/>
-      <stop offset="1" stop-color="#111827"/>
-    </linearGradient>
-    <linearGradient id="step1" x1="0" y1="0" x2="1" y2="1">
-      <stop stop-color="#1D4ED8"/>
-      <stop offset="1" stop-color="#0EA5E9"/>
-    </linearGradient>
-    <linearGradient id="step2" x1="0" y1="0" x2="1" y2="1">
-      <stop stop-color="#059669"/>
-      <stop offset="1" stop-color="#14B8A6"/>
-    </linearGradient>
-    <linearGradient id="step3" x1="0" y1="0" x2="1" y2="1">
-      <stop stop-color="#D97706"/>
-      <stop offset="1" stop-color="#F97316"/>
-    </linearGradient>
-  </defs>
-
-  <rect x="18" y="18" width="1164" height="464" rx="32" fill="url(#bg)"/>
-
-  <rect x="52" y="110" width="308" height="286" rx="28" fill="#0B1220" stroke="#2B4058"/>
-  <rect x="82" y="84" width="84" height="46" rx="23" fill="url(#step1)"/>
-  <text x="112" y="113" fill="#EFF6FF" font-family="Verdana, DejaVu Sans, sans-serif" font-size="22" font-weight="700">1</text>
-  <text x="92" y="172" fill="#E5F0FF" font-family="Verdana, DejaVu Sans, sans-serif" font-size="32" font-weight="700">Установка</text>
-  <text fill="#98AEC3" font-family="Verdana, DejaVu Sans, sans-serif" font-size="20">
-    <tspan x="92" y="214">Codex / Claude / Cursor</tspan>
-    <tspan x="92" y="246">self-contained skill bundle</tspan>
-  </text>
-  <text x="92" y="334" fill="#D8E4F2" font-family="Verdana, DejaVu Sans, sans-serif" font-size="18">install_agent.py</text>
-
-  <rect x="446" y="110" width="308" height="286" rx="28" fill="#0B1220" stroke="#2B4058"/>
-  <rect x="476" y="84" width="84" height="46" rx="23" fill="url(#step2)"/>
-  <text x="506" y="113" fill="#ECFDF5" font-family="Verdana, DejaVu Sans, sans-serif" font-size="22" font-weight="700">2</text>
-  <text x="486" y="172" fill="#E8FFF7" font-family="Verdana, DejaVu Sans, sans-serif" font-size="32" font-weight="700">Сборка</text>
-  <text fill="#98AEC3" font-family="Verdana, DejaVu Sans, sans-serif" font-size="20">
-    <tspan x="486" y="214">status -&gt; init -&gt; ensure</tspan>
-    <tspan x="486" y="246">workspace packs в .onec/</tspan>
-  </text>
-  <text fill="#D8E4F2" font-family="Verdana, DejaVu Sans, sans-serif" font-size="18">
-    <tspan x="486" y="326">platform / metadata</tspan>
-    <tspan x="486" y="352">code / full</tspan>
-  </text>
-
-  <rect x="840" y="110" width="308" height="286" rx="28" fill="#0B1220" stroke="#2B4058"/>
-  <rect x="870" y="84" width="84" height="46" rx="23" fill="url(#step3)"/>
-  <text x="900" y="113" fill="#FFF7ED" font-family="Verdana, DejaVu Sans, sans-serif" font-size="22" font-weight="700">3</text>
-  <text fill="#FFF4E5" font-family="Verdana, DejaVu Sans, sans-serif" font-size="30" font-weight="700">
-    <tspan x="880" y="166">Проверка /</tspan>
-    <tspan x="880" y="202">export</tspan>
-  </text>
-  <text fill="#98AEC3" font-family="Verdana, DejaVu Sans, sans-serif" font-size="20">
-    <tspan x="880" y="244">resolve-packs, verify,</tspan>
-    <tspan x="880" y="276">benchmark и runtime</tspan>
-    <tspan x="880" y="308">bundle</tspan>
-  </text>
-  <text fill="#D8E4F2" font-family="Verdana, DejaVu Sans, sans-serif" font-size="18">
-    <tspan x="880" y="352">локально и</tspan>
-    <tspan x="880" y="378">offline-friendly</tspan>
-  </text>
-
-  <path d="M360 252H426" stroke="#60758A" stroke-width="4" stroke-linecap="round"/>
-  <path d="M754 252H820" stroke="#60758A" stroke-width="4" stroke-linecap="round"/>
-  <path d="M414 238L434 252L414 266" stroke="#60758A" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M808 238L828 252L808 266" stroke="#60758A" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="520" viewBox="0 0 1200 520" role="img" aria-labelledby="title desc">
+<title id="title">Подготовка пакета и поиск в Onec Context Toolkit</title>
+<desc id="desc">Подготовка: локальные HBK, временное извлечение, сжатый пакет SQLite. При первом чтении SQLite извлекается в постоянный кэш. Поиск по точному имени или FTS5 возвращает записи с источником и версией. Временные файлы сборки удаляются, пакет и кэш сохраняются.</desc>
+<rect width="1200" height="520" rx="24" fill="#f5f7fa"/>
+<g font-family="Arial, Helvetica, sans-serif" fill="#172536">
+<text x="40" y="51" font-size="24" font-weight="700">Подготовка при изменении источника</text>
+<g fill="#fff" stroke="#d4deea" stroke-width="2"><rect x="40" y="76" width="300" height="112" rx="14"/><rect x="440" y="76" width="320" height="112" rx="14"/><rect x="860" y="76" width="300" height="112" rx="14"/></g>
+<g font-size="23" font-weight="700"><text x="62" y="118">Локальные HBK</text><text x="462" y="118">Извлечение записей</text><text x="882" y="118">Пакет SQLite + Zstd</text></g>
+<g font-size="18" fill="#506174"><text x="62" y="153">Выбранная версия платформы</text><text x="462" y="153">Временный каталог сборки</text><text x="882" y="153">Готов для повторного чтения</text></g>
+<text x="40" y="250" font-size="24" font-weight="700">Поиск при работе над задачей</text>
+<g fill="#fff" stroke="#d4deea" stroke-width="2"><rect x="40" y="276" width="300" height="112" rx="14"/><rect x="440" y="276" width="320" height="112" rx="14"/><rect x="860" y="276" width="300" height="112" rx="14"/></g>
+<g font-size="23" font-weight="700"><text x="62" y="318">Вопрос агента</text><text x="462" y="318">SQLite в локальном кэше</text><text x="882" y="318">Записи из источника</text></g>
+<g font-size="18" fill="#506174"><text x="62" y="353">Инструмент внутри skill</text><text x="462" y="353">Точное имя или FTS5</text><text x="882" y="353">Тема, версия, доступные поля</text></g>
+<g fill="none" stroke="#3468ab" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M360 132h60m-8-8 8 8-8 8"/><path d="M780 132h60m-8-8 8 8-8 8"/><path d="M360 332h60m-8-8 8 8-8 8"/><path d="M780 332h60m-8-8 8 8-8 8"/></g>
+<text x="40" y="440" font-size="19" fill="#506174">Первое чтение распаковывает SQLite в кэш. Следующие обращения используют его повторно.</text>
+<text x="40" y="475" font-size="19" fill="#506174">Временные файлы сборки удаляются; исходники, готовый пакет и действующий кэш сохраняются.</text>
+</g></svg>

@@ -1,10 +1,11 @@
 ---
-description: 1C development standards and conventions for code writing and review
+description: Apply source-backed 1C development standards during code review.
 globs:
 alwaysApply: false
 ---
 
-- Treat coding standards claims as unverified until a concrete source is available.
-- Keep platform/API facts separate from style recommendations.
-- Prefer documented project conventions over generic recommendations when both exist.
-- If source is missing, label guidance as assumption and provide a conservative alternative.
+Read `{skill_rel_root}/references/dev-standards.md` when relevant.
+Use the main skill's tools at `{skill_rel_root}/scripts/onec_context.py`.
+Choose the required source, version and configuration before querying.
+Use existing packs first; prepare missing layers with `ensure` only when needed.
+Separate retrieved facts, deductions and unresolved assumptions.

@@ -1,49 +1,36 @@
 ---
 name: onec-explain-object
-description: Use this supplemental skill when explaining how a 1C object, flag, requisite, form field, button, or command affects behavior.
+description: Explain 1C configuration behavior from metadata and code evidence.
 ---
 
 # Onec Explain Object
 
-This is a supplemental skill. Use it for questions such as:
+This is optional guidance for the main onec-context skill. Load
+[the reference](reference.md) when this topic is relevant. Executable tools live
+in the main skill or an exported bundle, not in this supplemental directory.
+Resolve their actual location before running a command. Do not assume that
+`onec-context` is installed on PATH.
 
-- what a flag or requisite changes
-- how a form button is wired
-- how a document, form, or command behaves
-- where an object is read, written, or handled
+Start with the selected configuration or extension and its version. Resolve
+available packs using the main toolkit or the bundle's resolver. If the target
+is ambiguous, clarify it before drawing conclusions.
 
-## Working method
+1. Query the metadata pack for the exact object or field. Record its type,
+   ownership, tabular section or form context when available.
+2. When the question concerns behavior, query the code pack for relevant modules
+   and declarations. Follow callers and callees only where needed.
+3. Read exact files from the full pack, or the user's source tree, when an index
+   entry cannot establish the claim. A code index is not a runtime execution trace.
+4. Check platform API separately against the required version of the help pack.
+5. Explain the observed behavior and cite the relevant object, module or source
+   path. Separate code-derived conclusions from verified metadata.
 
-1. Identify the target configuration or extension first.
-2. Resolve packs with `onec-context resolve-packs`.
-3. Start from `metadata`:
-   - identify the object
-   - identify requisites, types, tabular sections, forms, and form commands
-4. If the question is about behavior, ensure `code` and trace:
-   - where the symbol is declared
-   - where the object/requisite is read
-   - where it is written
-   - which procedures call the relevant code
-5. Use `full` only when raw source text or exact XML is required to finish the trace.
+Readers are `tools/local_kb_query.py`, `tools/query_code_pack.py` and
+`tools/query_config_pack.py`. Pass a resolved `--db` path. The code reader has
+`modules`, `symbols`, `callers` and `callees` subcommands. The full reader has
+`find`, `read` and `extract`. Use each command's `--help` for its arguments.
 
-## Answer shape
-
-- direct effect
-- indirect effect
-- where in the lifecycle it happens: form, write, post, print, exchange, validation
-- evidence:
-  - target
-  - pack layer
-  - module or object names
-
-## Guardrails
-
-- Do not jump straight into `full` unless higher layers failed.
-- Do not claim that a flag affects posting if you only proved that it affects UI or print.
-- Distinguish:
-  - structure
-  - handlers
-  - business logic
-  - print/EDI/status side effects
-
-See also `reference.md` in this skill folder for the condensed tracing checklist.
+Missing modules, dynamic calls, incomplete exports and runtime data can leave
+behavior unresolved. State the specific gap. Do not assert that a field is unused
+solely because the index contains no textual reference. Build missing layers
+with the installed toolkit; an exported bundle only reads existing packs.

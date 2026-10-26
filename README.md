@@ -1,357 +1,163 @@
 # Onec Context Toolkit
 
-![Onec Context Toolkit hero](docs/readme/hero.svg)
+![Onec Context Toolkit](docs/readme/hero.svg)
 
-`onec-context-toolkit` превращает 1С-репозиторий в локальный source-first context для агентов. Он ставит self-contained integration в `Codex`, `Claude`, `Cursor`, собирает workspace packs в `.onec/` из `ConfigDump` и `HBK`, а затем умеет экспортировать read-only runtime bundle для offline lookup.
+**Справка 1С и инструменты разработки внутри одного skill.**
 
-Место toolkit среди соседних компонентов зафиксировано в [общей карте экосистемы](https://github.com/mussolene/1c_hbk_bsl#место-в-экосистеме). Этот репозиторий отвечает за source-first сборку и проверку version/target-bound packs из `HBK` и `ConfigDump`; редакторная навигация и владение runtime-контейнером остаются за пределами его роли.
+Установите skill, укажите каталог платформы и задавайте агенту рабочие задачи.
+Toolkit собирает локальную базу из HBK, выдаёт факты с версиями и подключает
+метаданные, стандарты и код только тогда, когда они нужны.
 
-![Workflow](docs/readme/workflow.svg)
+Место toolkit среди соседних компонентов описано в [общей карте экосистемы](https://github.com/mussolene/1c_hbk_bsl#место-в-экосистеме). Toolkit отвечает за сборку и проверку пакетов из HBK и ConfigDump с привязкой к версии и конфигурации.
 
-## Что это даёт
+Для поиска не нужны Docker, Qdrant, Redis, сервер моделей или ключ API.
+Нужен Python 3.11+. При первом запуске toolkit создаёт своё окружение и
+устанавливает зависимости. Для полностью автономной работы подготовьте
+окружение и пакет заранее.
 
-| Задача | Что делает toolkit |
-| --- | --- |
-| Установка в агента | Копирует self-contained skill bundle и supplemental guidance layers |
-| Локальный context | Строит `platform`, `metadata`, `code`, `full` packs только когда они реально нужны |
-| Контроль drift | Проверяет stale state по platform version, config version и source snapshot |
-| Runtime bundle | Экспортирует готовый read-only bundle без rebuild logic |
+## Быстрый старт
 
-Если нужен operational workflow и архитектурная модель, они вынесены в [AGENTS.md](AGENTS.md). Отдельные supplemental слои включают platform CLI/headless-server, query strategy, object explanation, platform fact-check и dev standards.
+Из каталога скачанного репозитория:
 
-## Быстрый старт за 3 шага
-
-### 1. Поставить integration
-
-Для `Codex`:
-
-```bash
-python scripts/install_agent.py --agent codex
+```sh
+python3 scripts/install_agent.py --agent codex
 ```
 
-Для `Claude`:
+Затем напишите агенту:
 
-```bash
-python scripts/install_agent.py --agent claude
+> Используй onec-context. Платформа находится в /путь/к/платформе,
+> версия 8.5.1.1343. Подготовь справку для этого проекта и проверь мой код.
+
+Агент выполнит подготовку и поиск инструментами установленного skill.
+Если новый skill ещё не появился в клиенте, откройте новую сессию.
+
+Другие клиенты:
+
+```sh
+python3 scripts/install_agent.py --agent claude
+python3 scripts/install_agent.py --agent cursor --workspace /путь/к/проекту
 ```
 
-Для `Cursor`:
+По умолчанию устанавливается один самостоятельный skill. Справочные материалы
+и исполняемые инструменты находятся внутри. `--supplemental` дополнительно
+устанавливает отдельные специализированные skills. Обновление той же командой
+сохраняет подготовленное окружение и вложенный пакет справки.
 
-```bash
-python scripts/install_agent.py --agent cursor --workspace /path/to/workspace
+## С готовой базой: сразу к работе
+
+Сначала соберите пакет для выбранной версии:
+
+```sh
+python3 scripts/onec_context.py ensure \
+  --workspace-root /путь/к/проекту \
+  --need platform \
+  --hbk-base /путь/к/платформе \
+  --platform 8.5.1.1343
+
+python3 scripts/onec_context.py resolve-packs \
+  --workspace-root /путь/к/проекту --role platform --path-only
 ```
 
-### 2. Проверить prerequisites
+Передайте выведенный путь установщику:
 
-```bash
-python scripts/doctor.py --workspace-init --hbk-base /opt/1cv8
+```sh
+python3 scripts/install_agent.py --agent codex --platform-pack /путь/к/platform.kb.db.zst
 ```
 
-`HBK` path может указывать на:
+Skill получит собственную копию базы. Поиск больше не требует исходного HBK
+или запущенного контейнера. Точная версия каждого результата остаётся видимой.
+Сам HBK и материалы ITS не входят в публичный репозиторий.
 
-- корень платформы
-- каталог конкретной версии
-- `bin/` внутри каталога версии
+## Поиск
 
-На Windows это особенно полезно: можно передавать не только корневой каталог платформы, но и version-specific `bin/`, где реально лежат `.hbk`.
+Команды ниже выполняются из корня установленного skill или репозитория toolkit.
+В другом рабочем каталоге укажите абсолютный путь к `scripts/onec_context.py`.
+Поиск без пути к проекту читает `artifacts/platform.kb.db.zst` рядом со skill:
 
-### 3. Собрать базовый workspace
-
-```bash
-python scripts/onec_context.py init \
-  --workspace-root /path/to/workspace \
-  --source-path /path/to/source \
-  --profile base \
-  --hbk-base /opt/1cv8 \
-  --platform 8.2.19.130
+```sh
+python3 scripts/onec_context.py query-kb \
+  --q 'Структура.Вставить' --exact --version 8.5.1.1343 --json
 ```
 
-После этого у workspace уже есть `help` layer. Остальные слои достраиваются по запросу:
+Или по пакету конкретного проекта:
 
-```bash
-python scripts/onec_context.py ensure --workspace-root /path/to/workspace --need metadata
-python scripts/onec_context.py ensure --workspace-root /path/to/workspace --need code
-python scripts/onec_context.py ensure --workspace-root /path/to/workspace --need full
+```sh
+python3 scripts/onec_context.py query-kb \
+  --workspace-root /путь/к/проекту --q 'Структура.Вставить' --exact --json
 ```
 
-## Что нужно заранее
+Результат содержит имя, тему, версии и доступные параметры, возвращаемое
+значение и ограничения. `--detail full` возвращает исходную структурированную
+запись. Поля источника сохраняются без обрезки; короткое описание может быть
+сокращено с явным признаком. Без `--exact` выполняется полнотекстовый поиск,
+если точного совпадения нет. Из вопроса выделяется полное имя `Тип.Метод`,
+а для остальных формулировок используются значимые слова и поиск по началу слов.
+Это лексический поиск FTS5, без модели эмбеддингов: найденные записи нужно
+проверить на соответствие вопросу. По умолчанию возвращается
+до пяти результатов. Отдельные примеры ищите с `--domain api_examples`;
+`--detail full` не добавляет записи из других разделов и не возвращает исходный HTML.
 
-- Python `3.11+`
-- `zstandard` через локальное Python-окружение toolkit или `zstd` CLI как fallback
-- `ConfigDump` или другая поддерживаемая source tree
-- доступ к `HBK` для стандартных профилей `base`, `metadata`, `dev`, `full`
-- `7z` или `unzip`, если они нужны для распаковки `.hbk`
+Пакеты старого формата нужно пересобрать: новый поиск требует схему 2.
+Отсутствие результата означает отсутствие подтверждения в выбранном пакете.
 
-`HBK` не нужен только в явном нестандартном сценарии с `--without-help`.
+## Первый запуск и повторная работа
 
-## Модель слоёв
+![Подготовка пакета и поиск](docs/readme/workflow.svg)
 
-| Профиль / need | Что строится | Когда нужен |
+`ensure` проверяет источник и использует готовую справку, если байты HBK,
+версия сборщика и параметры выбора не изменились. Промежуточная распаковка
+удаляется. SQLite извлекается из архива один раз в локальный кэш и используется
+повторно; `ONEC_CONTEXT_CACHE_DIR` позволяет выбрать каталог кэша.
+Первое обращение включает распаковку SQLite, следующие обходятся без неё.
+На диске остаются исходные HBK, сжатый пакет и несжатый SQLite в кэше.
+Это разные объёмы: размер архива не равен общему потреблению диска.
+Уборка временных каталогов работает при обычном завершении и обработке ошибок;
+принудительное уничтожение процесса может оставить незавершённую сборку.
+
+## Дополнительные слои
+
+| Потребность | Подготовка | Чтение |
 | --- | --- | --- |
-| `base` | `platform` help pack | platform API, language facts, syntax |
-| `metadata` | `platform` + `metadata` | объекты, реквизиты, табличные части, формы |
-| `dev` / `code` | `platform` + `metadata` + `code` | обработчики, callers/callees, влияние логики |
-| `full` | всё выше + lossless `ConfigDump` pack | raw XML, точные file-level reads, final confirmation |
+| Стандарты ITS из локального каталога | `ensure --need standards --standards-dir ...` | `query-kb --role standards` |
+| Реквизиты, формы, типы конфигурации | `ensure --need metadata --source-path ...` | `query-kb --role metadata` |
+| Модули, методы, вызывающий код | `ensure --need code` | `query-code` |
+| Точный XML и файлы конфигурации | `ensure --need full` | `query-config` |
 
-Ключевой принцип: не строить дорогой слой заранее, если вопрос можно закрыть более дешёвым route.
+Указывайте `--workspace-root` при работе с проектом. Для нескольких конфигураций
+выбирайте `--target`. `resolve-packs` возвращает актуальные пути; их не нужно
+угадывать. Стандарты и конфигурация имеют отдельные источники и не возникают
+автоматически из справки платформы.
 
-## Канонический proof surface
+BSL Language Server и тесты проекта проверяют получившийся код. Toolkit
+предоставляет контекст, но не заменяет эти проверки. OACS можно использовать
+как существующую память проекта; для запуска toolkit он не требуется.
+Автоматического адаптера OACS в toolkit сейчас нет.
 
-Повторяемые developer-facing сценарии собраны в [examples/proof-surface.md](examples/proof-surface.md). Это не маркетинговые лозунги, а canonical tasks с ожидаемым route по слоям, примером запроса и тем, что именно агент должен доказать.
+## Инструменты и проверка
 
-Дополнительная живая доказательная база с обезличенными archetypes из большой production-like 1С-кодовой базы собрана в [examples/live-codebase-proof.md](examples/live-codebase-proof.md). Она нужна, чтобы проверять toolkit не только на учебных сценариях, но и на реальных формах, командах, табличных частях и command modules.
+`python3 scripts/onec_context.py --help` показывает все команды.
+Необязательный stdio MCP: `onec-context-mcp` после подготовки окружения.
+Переносимый пакет для чтения: `export --workspace-root ... --archive`.
+Он содержит выбранные пакеты, инструменты чтения и отдельную инструкцию.
+В отличие от установленного toolkit, он не содержит сборщик и автоматическую
+подготовку Python. Для Python до 3.14 рекомендуется модуль `zstandard`; в Python 3.14
+доступен встроенный `compression.zstd`. Средство совместимости также поддерживает
+установленный `zstd`.
 
-В минимальный proof surface входят:
+`status` помогает диагностировать состояние, `ensure` подготавливает нужные
+слои, `init` явно запускает сборку. Проверка изменений конфигурации не является
+полным сравнением всех XML и BSL: после правок исходников выполняйте `init`
+с нужным профилем, затем `verify`. Пакет платформы при неизменном источнике
+может использоваться повторно.
 
-- version-exact проверка платформенного метода через `platform`
-- разбор реквизита, табличной части или формы через `metadata`
-- поиск влияния на поведение через `code`
-- финальное подтверждение по raw source/XML через `full`
-- multi-target сценарий, где сначала выбирается нужная конфигурация, а уже потом идёт query
+Проверка реализации в изолированных временных каталогах:
 
-Если нужно быстро проверить позиционирование toolkit на реальном вопросе разработчика 1С, начинайте с этих сценариев, а не с произвольного prompt.
-
-## Сравнение с соседними инструментами
-
-| Инструмент | Что закрывает хорошо | Где граница относительно `onec-context-toolkit` |
-| --- | --- | --- |
-| `1C:EDT` | IDE, проектная работа, навигация, сборка и ежедневная разработка | `onec-context-toolkit` не заменяет IDE. Он даёт source-first lifecycle для agent work: `status -> init/ensure -> resolve-packs -> query/verify/export`. |
-| `BSL Language Server` | Диагностика, LSP-навигация, проверки кода BSL | Это code intelligence слой, а не orchestration над `platform` / `metadata` / `code` / `full` packs и не workspace/export lifecycle. |
-| AI-facing platform-context tool | Доступ к platform help и language facts для ассистента | Такой слой полезен для help/API lookup, но сам по себе не решает drift, target selection, локальный metadata/code/full routing и export готового runtime bundle. |
-
-Идея toolkit не в том, чтобы конкурировать с IDE или LSP по каждой функции. Он закрывает другой слой: воспроизводимый локальный context для агента поверх реального 1С source tree и platform help.
-
-## Как выглядит рабочий цикл
-
-```text
-status -> init/ensure -> resolve-packs -> query/verify/export
+```sh
+python3 -m unittest discover -s tests -v
 ```
 
-### MCP для агентов
-
-Для агентов, которым не нужно держать в контексте длинную карту CLI-команд, toolkit даёт компактный stdio MCP server:
-
-```bash
-onec-context-mcp
-```
-
-Из source checkout можно запускать так:
-
-```bash
-python3 scripts/mcp_server.py
-```
-
-MCP tools повторяют тот же lifecycle и pack contract, но принимают короткие JSON arguments:
-
-- `onec_status`
-- `onec_ensure`
-- `onec_resolve_packs`
-- `onec_query_kb`
-- `onec_query_code`
-- `onec_query_config`
-
-Для target-bound слоёв (`metadata`, `code`, `full`) server сохраняет правило явного выбора target: если pack path неоднозначен, tool вернёт ошибку и попросит передать `target` или `all_targets=true`.
-
-Практические команды:
-
-```bash
-python scripts/onec_context.py status --workspace-root /path/to/workspace --strict
-python scripts/onec_context.py resolve-packs --workspace-root /path/to/workspace
-python scripts/onec_context.py verify --workspace-root /path/to/workspace
-python scripts/onec_context.py benchmark --workspace-root /path/to/workspace --loops 3
-python scripts/onec_context.py export --workspace-root /path/to/workspace --archive
-python scripts/onec_context.py fetch-its-standards --output-dir /path/to/workspace/data/standards/its-v8std
-python scripts/onec_context.py build-kb standards --standards-dir /path/to/workspace/data/standards/its-v8std --out-zst /path/to/workspace/.onec/packs/standards.its-v8std.kb.db.zst --manifest /path/to/workspace/.onec/manifests/standards.its-v8std.kb.manifest.json
-```
-
-Если `--source-path` указывает на папку с несколькими `Configuration.xml`, toolkit собирает несколько target packs и записывает их в `.onec/workspace.manifest.json -> targets`. В этом режиме нельзя хардкодить первый попавшийся pack path: сначала нужно выбрать target по имени и версии.
-
-## Контракт ответа агента
-
-Если агент отвечает с опорой на toolkit, ответ должен быть структурирован так:
-
-1. `Target`
-   Указать выбранный target. Если target один, можно явно написать, что workspace single-target. Если target'ов несколько, нужно назвать конфигурацию и версию или честно отметить, что без выбора target ответ будет недостоверным.
-2. `Использованные слои`
-   Назвать, какие слои использовались: `platform`, `standards`, `metadata`, `code`, `full`.
-3. `Подтверждённые факты`
-   Только то, что подтверждено pack/query results или version-exact platform help.
-4. `Выводы по коду`
-   Отдельно от фактов описать inference: как код влияет на поведение, какие модули участвуют, что из этого следует.
-5. `Непроверенные предположения`
-   Явно перечислить, чего toolkit пока не доказал: отсутствующий слой, невыбранный target, неполный source tree, спорное место в платформе.
-
-Короткая версия правила: не смешивать facts, inference и assumptions в один абзац; всегда называть слой и target, откуда взят ответ.
-
-## Режимы использования
-
-### Source repo mode
-
-Работа идёт прямо из checkout этого репозитория. Локальное окружение живёт в `.venv/` в корне repo.
-
-```bash
-python scripts/bootstrap.py --deps-only
-```
-
-### Installed skill mode
-
-Toolkit копируется прямо в skill directory агента и живёт как self-contained bundle. Локальное окружение создаётся уже внутри установленного skill directory.
-
-При установке integration toolkit ставит:
-
-- основной skill `onec-context`
-- supplemental skill `onec-platform-cli`
-- supplemental skill `onec-query-strategy`
-- supplemental skill `onec-explain-object`
-- supplemental skill `onec-platform-fact-check`
-- supplemental skill `onec-dev-standards`
-
-## Prompt для агента
-
-<details>
-<summary>Показать стартовый prompt</summary>
-
-```text
-Работай с этой 1С-задачей через локальный onec-context toolkit.
-Сначала проверь workspace и при необходимости инициализируй его.
-Перед `init --profile base` найди `HBK` root: сначала в manifest workspace, но только если путь из него ещё существует, потом в `ONEC_HBK_BASE`, потом в `/opt/1cv8`; если его нет, один раз уточни путь у меня.
-В качестве `HBK` path допустимы корень платформы, каталог конкретной версии или его `bin/`.
-Используй onec-query-strategy, чтобы идти по cheapest-first route: сначала platform или metadata, потом code только если без него нельзя ответить, и full только для raw source/XML.
-Если вопрос про объект, реквизит, форму, кнопку, флаг или влияние на поведение, используй onec-explain-object.
-Если утверждаешь что-то про платформенный API, синтаксис языка, виды модулей или стандартные методы, сначала проверь это через onec-platform-fact-check.
-Если вопрос про стандарты разработки, соглашения по коду и review-рекомендации, используй onec-dev-standards.
-Если target'ов несколько, выбери нужную конфигурацию по имени и версии или один раз уточни у меня.
-Если знаешь версию платформы, используй её при build help pack, чтобы platform lookup был version-exact.
-В ответе всегда называй target и использованные слои, а затем разделяй подтверждённые факты, выводы по коду и непроверенные предположения.
-```
-
-</details>
-
-Если известны входные параметры, полезно дописать сразу:
-
-- путь к workspace
-- путь к source tree
-- версия платформы
-- нужно ли заранее строить `metadata` или `code`
-
-Для multi-target workspace полезно сразу дописывать и ожидаемый `target`, чтобы агент не начал query по неверной конфигурации.
-
-## Инициализация и дополнительные сценарии
-
-### Базовый `help` слой
-
-```bash
-python scripts/onec_context.py init \
-  --workspace-root /path/to/workspace \
-  --source-path /path/to/source \
-  --profile base \
-  --hbk-base /opt/1cv8 \
-  --platform 8.2.19.130
-```
-
-### Расширение с несколькими base configs
-
-```bash
-python scripts/onec_context.py init \
-  --workspace-root /path/to/extension \
-  --source-path /path/to/extension \
-  --source-kind extension \
-  --profile base \
-  --hbk-base /opt/1cv8 \
-  --base-config "БухгалтерияПредприятия@3.0.184.16" \
-  --base-config "УправлениеНашейФирмой@3.0.13.260"
-```
-
-### Metadata fallback через `metadata XML export`
-
-```bash
-python scripts/onec_context.py init \
-  --workspace-root /path/to/workspace \
-  --source-path /path/to/workspace \
-  --profile metadata \
-  --hbk-base /opt/1cv8 \
-  --metadata-source /path/to/metadata-xml-export
-```
-
-`metadata XML export` здесь остаётся fallback или verification layer. Нормальный happy path для toolkit всё равно начинается с `ConfigDump` + `HBK`, а `metadata XML export` используется, когда source tree неполный или нужно перепроверить спорные реквизиты и типы.
-
-## FAQ и сбои, которые надо закрывать сразу
-
-### Какой `HBK` path правильный?
-
-Toolkit принимает три формы:
-
-- корень с несколькими версиями, например `/opt/1cv8`
-- каталог конкретной версии, например `C:\Program Files\1cv8\8.3.25.1374`
-- `bin/` внутри конкретной версии, например `C:\Program Files\1cv8\8.3.25.1374\bin`
-
-Если известна версия платформы, лучше передавать и `--platform <VERSION>`, чтобы help pack был version-exact.
-
-### Что делать, если в workspace несколько target'ов?
-
-1. Выполнить `python scripts/onec_context.py resolve-packs --workspace-root /path/to/workspace`.
-2. Посмотреть `targets` и выбрать нужный target по имени и версии.
-3. Во всех `query-*` командах и в ответах агента использовать этот target последовательно.
-
-Нельзя молча смешивать результаты из нескольких target'ов.
-
-### Когда нужен `metadata XML export`?
-
-Не как default route. Его стоит использовать только в двух режимах:
-
-- fallback, если нет нормального `ConfigDump`
-- verification layer, если нужно перепроверить спорный metadata fact
-
-Если есть полноценный source tree, сначала должен работать обычный source-first workflow.
-
-### Как восстановиться после stale workspace или drift?
-
-Минимальный путь такой:
-
-```bash
-python scripts/onec_context.py status --workspace-root /path/to/workspace --strict
-python scripts/onec_context.py init --workspace-root /path/to/workspace --source-path /path/to/source --profile base --hbk-base /opt/1cv8 --platform <VERSION>
-python scripts/onec_context.py ensure --workspace-root /path/to/workspace --need metadata
-```
-
-Если stale оказался только один слой, достаточно `ensure --need standards|metadata|code|full`. Если поменялись версия платформы, версия конфигурации или сам source snapshot, считайте старые ответы недоказанными, пока `status` и rebuild не пройдены заново.
-
-## Что лежит в `.onec/`
-
-Toolkit собирает:
-
-- `.onec/workspace.manifest.json`
-- `.onec/packs/platform.<versions>.kb.db.zst`
-- `.onec/packs/<source-identity>.metadata.kb.db.zst`
-- `.onec/packs/<source-identity>.code.pack.db.zst`
-- `.onec/packs/<source-identity>.config.dump.db.zst`
-- `.onec/manifests/*.manifest.json`
-- `.onec/cache/*.db`
-
-## Что хранить в git
-
-Стоит хранить:
-
-- source code
-- templates
-- install scripts
-- docs
-
-Не стоит хранить:
-
-- `.onec/`
-- `build/`
-- `dist/`
-- большие `artifacts/*.zst`
-
-Рекомендуемая модель распространения:
-
-1. source repo как основной канал
-2. optional exported bundle как transfer artifact
-3. packs строятся локально в workspace или публикуются как release assets
-
-## Полезные ссылки
-
-- [AGENTS.md](AGENTS.md) — operational workflow для агентов и разработчиков
-- [docs/1c-platform-cli.md](docs/1c-platform-cli.md) — platform CLI и headless/server reference
-- `python scripts/onec_context.py --help` — карта CLI и quick start прямо в help
+[Сценарии проверки](examples/proof-surface.md) ·
+[Сценарии работы с конфигурацией](examples/live-codebase-proof.md) ·
+[Команды](examples/commands.txt) ·
+[Устройство проекта](AGENTS.md) ·
+[Команды платформы](docs/1c-platform-cli.md)

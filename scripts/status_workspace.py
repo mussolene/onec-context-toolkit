@@ -10,6 +10,8 @@ from pathlib import Path
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
 
 def _load_json(path: Path) -> dict:
@@ -34,7 +36,11 @@ def _current_source_snapshot(config_root: Path | None) -> dict[str, object] | No
 
 
 def _pack_manifest_path(pack_path: Path) -> Path:
-    return pack_path.parent.parent / "manifests" / pack_path.name.replace(".db.zst", ".manifest.json")
+    return (
+        pack_path.parent.parent
+        / "manifests"
+        / pack_path.name.replace(".db.zst", ".manifest.json")
+    )
 
 
 def _pack_entry(name: str, pack_path: Path) -> dict[str, object]:
@@ -75,7 +81,9 @@ def _legacy_targets(manifest: dict[str, object]) -> dict[str, dict[str, object]]
     }
 
 
-def collect_status(workspace_root: Path, requested_platforms: list[str] | None = None) -> dict[str, object]:
+def collect_status(
+    workspace_root: Path, requested_platforms: list[str] | None = None
+) -> dict[str, object]:
     workspace_root = workspace_root.expanduser().resolve()
     onec_root = workspace_root / ".onec"
     manifest_path = onec_root / "workspace.manifest.json"
@@ -98,7 +106,11 @@ def collect_status(workspace_root: Path, requested_platforms: list[str] | None =
     pack_entries: dict[str, object] = {}
     target_entries: dict[str, object] = {}
     legacy_config_root_value = manifest.get("config_root")
-    legacy_config_root = Path(legacy_config_root_value) if isinstance(legacy_config_root_value, str) else None
+    legacy_config_root = (
+        Path(legacy_config_root_value)
+        if isinstance(legacy_config_root_value, str)
+        else None
+    )
     legacy_current_snapshot = _current_source_snapshot(legacy_config_root)
 
     packs = manifest.get("packs") or {}
@@ -116,6 +128,11 @@ def collect_status(workspace_root: Path, requested_platforms: list[str] | None =
             issues.append(f"manifest for pack {name} is missing")
             continue
         manifest_payload = pack_entry["manifest"]
+        if (
+            name in {"platform", "standards", "metadata"}
+            and manifest_payload.get("schema_version") != 2
+        ):
+            issues.append(f"{name} pack uses an old schema; rebuild required")
         if name == "metadata" and legacy_current_snapshot is not None:
             versions_seen = (
                 ((manifest_payload.get("stats") or {}).get("versions_seen") or {})
@@ -124,18 +141,52 @@ def collect_status(workspace_root: Path, requested_platforms: list[str] | None =
             )
             current_version = str(legacy_current_snapshot.get("config_version") or "")
             if current_version and current_version not in versions_seen:
-                issues.append("metadata pack does not contain current configuration version")
+                issues.append(
+                    "metadata pack does not contain current configuration version"
+                )
         if name in {"code", "full"} and legacy_current_snapshot is not None:
             source_dir = str(manifest_payload.get("source_dir") or "")
-            if source_dir and source_dir != str(legacy_current_snapshot.get("source_root")):
-                issues.append(f"{name} pack source root does not match current config root")
+            if source_dir and source_dir != str(
+                legacy_current_snapshot.get("source_root")
+            ):
+                issues.append(
+                    f"{name} pack source root does not match current config root"
+                )
         if name == "platform":
-            expected = requested_platforms or list(manifest.get("requested_platforms") or [])
-            versions_seen = list((((manifest_payload.get("stats") or {}).get("versions_seen") or {})).keys())
-            missing_platforms = [version for version in expected if version not in versions_seen]
+            from scripts.build_local_kb import help_source_snapshot
+
+            hbk_base = (manifest.get("optional_sources") or {}).get("hbk_base")
+            try:
+                current = (
+                    help_source_snapshot(
+                        Path(hbk_base), list(manifest.get("requested_platforms") or [])
+                    )
+                    if hbk_base
+                    else None
+                )
+                if current is None or current != manifest_payload.get(
+                    "source_snapshot"
+                ):
+                    issues.append(
+                        "platform help source or builder changed; run ensure --need platform"
+                    )
+            except (OSError, ValueError) as exc:
+                issues.append(f"platform help source unavailable: {exc}")
+            expected = requested_platforms or list(
+                manifest.get("requested_platforms") or []
+            )
+            versions_seen = list(
+                (
+                    (manifest_payload.get("stats") or {}).get("versions_seen") or {}
+                ).keys()
+            )
+            missing_platforms = [
+                version for version in expected if version not in versions_seen
+            ]
             if missing_platforms:
                 issues.append(
-                    "platform help pack is missing requested versions: " + ", ".join(missing_platforms)
+                    "platform help pack is missing requested versions: "
+                    + ", ".join(missing_platforms)
                 )
 
     targets = manifest.get("targets")
@@ -149,17 +200,23 @@ def collect_status(workspace_root: Path, requested_platforms: list[str] | None =
             "packs": {},
         }
         config_root_value = target_payload.get("config_root")
-        config_root = Path(config_root_value) if isinstance(config_root_value, str) else None
+        config_root = (
+            Path(config_root_value) if isinstance(config_root_value, str) else None
+        )
         current_snapshot = _current_source_snapshot(config_root)
         target_result["current_source_snapshot"] = current_snapshot
         if target_payload.get("source_snapshot") != current_snapshot:
-            issues.append(f"target {target_name}: config source snapshot drifted; rebuild source-bound packs")
+            issues.append(
+                f"target {target_name}: config source snapshot drifted; rebuild source-bound packs"
+            )
 
         target_packs = target_payload.get("packs") or {}
         if isinstance(target_packs, dict):
             for pack_name, path_value in target_packs.items():
                 if not isinstance(path_value, str):
-                    issues.append(f"target {target_name}: pack entry {pack_name} has invalid path")
+                    issues.append(
+                        f"target {target_name}: pack entry {pack_name} has invalid path"
+                    )
                     continue
                 pack_path = Path(path_value).expanduser().resolve()
                 pack_entry = _pack_entry(pack_name, pack_path)
@@ -168,22 +225,40 @@ def collect_status(workspace_root: Path, requested_platforms: list[str] | None =
                     issues.append(f"target {target_name}: pack {pack_name} is missing")
                     continue
                 if not pack_entry["manifest_exists"]:
-                    issues.append(f"target {target_name}: manifest for pack {pack_name} is missing")
+                    issues.append(
+                        f"target {target_name}: manifest for pack {pack_name} is missing"
+                    )
                     continue
                 manifest_payload = pack_entry["manifest"]
+                if (
+                    pack_name == "metadata"
+                    and manifest_payload.get("schema_version") != 2
+                ):
+                    issues.append(
+                        f"target {target_name}: metadata pack uses an old schema"
+                    )
                 if pack_name == "metadata" and current_snapshot is not None:
                     versions_seen = (
-                        ((manifest_payload.get("stats") or {}).get("versions_seen") or {})
+                        (
+                            (manifest_payload.get("stats") or {}).get("versions_seen")
+                            or {}
+                        )
                         if isinstance(manifest_payload, dict)
                         else {}
                     )
                     current_version = str(current_snapshot.get("config_version") or "")
                     if current_version and current_version not in versions_seen:
-                        issues.append(f"target {target_name}: metadata pack does not contain current configuration version")
+                        issues.append(
+                            f"target {target_name}: metadata pack does not contain current configuration version"
+                        )
                 if pack_name in {"code", "full"} and current_snapshot is not None:
                     source_dir = str(manifest_payload.get("source_dir") or "")
-                    if source_dir and source_dir != str(current_snapshot.get("source_root")):
-                        issues.append(f"target {target_name}: {pack_name} pack source root does not match current config root")
+                    if source_dir and source_dir != str(
+                        current_snapshot.get("source_root")
+                    ):
+                        issues.append(
+                            f"target {target_name}: {pack_name} pack source root does not match current config root"
+                        )
         target_entries[target_name] = target_result
 
     target_source_kinds = [
@@ -202,13 +277,24 @@ def collect_status(workspace_root: Path, requested_platforms: list[str] | None =
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Check workspace drift and pack health")
+    parser = argparse.ArgumentParser(
+        description="Check workspace drift and pack health"
+    )
     parser.add_argument("--workspace-root", default=".")
-    parser.add_argument("--platform", action="append", default=[], help="Expected platform version(s) for help pack verification.")
-    parser.add_argument("--strict", action="store_true", help="Return non-zero when workspace is stale.")
+    parser.add_argument(
+        "--platform",
+        action="append",
+        default=[],
+        help="Expected platform version(s) for help pack verification.",
+    )
+    parser.add_argument(
+        "--strict", action="store_true", help="Return non-zero when workspace is stale."
+    )
     args = parser.parse_args()
 
-    status = collect_status(Path(args.workspace_root), requested_platforms=list(args.platform or []))
+    status = collect_status(
+        Path(args.workspace_root), requested_platforms=list(args.platform or [])
+    )
     print(json.dumps(status, ensure_ascii=False, indent=2))
     if args.strict and status["status"] != "ok":
         return 2

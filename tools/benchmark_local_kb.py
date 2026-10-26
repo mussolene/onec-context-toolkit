@@ -5,10 +5,8 @@ from __future__ import annotations
 
 import argparse
 import json
-import sqlite3
 import statistics
 import sys
-import time
 from pathlib import Path
 
 
@@ -18,8 +16,14 @@ SRC_DIR = REPO_ROOT / "src"
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
-from onec_help.runtime_db import ensure_sqlite_db  # noqa: E402
-from onec_help.workspace_manifest import load_workspace_manifest, manifest_targets, platform_pack  # noqa: E402
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+from tools.local_kb_query import query_pack  # noqa: E402
+from onec_help.workspace_manifest import (  # noqa: E402
+    load_workspace_manifest,
+    manifest_targets,
+    platform_pack,
+)  # noqa: E402
 
 
 def _load_json(path: Path) -> dict:
@@ -27,33 +31,24 @@ def _load_json(path: Path) -> dict:
 
 
 def _run_bench(path: Path, queries: list[str], loops: int = 5) -> None:
-    db_path, _temp = ensure_sqlite_db(path, cache_name="benchmark_cache")
-    con = sqlite3.connect(db_path)
-    cur = con.cursor()
+    if loops < 1:
+        raise ValueError("loops must be positive")
     timings: list[float] = []
+    misses = 0
     for _ in range(loops):
         for query in queries:
-            started = time.perf_counter()
-            cur.execute(
-                """
-                SELECT domain, name
-                FROM docs
-                WHERE lower(name)=lower(?) OR docs.id IN (
-                    SELECT rowid FROM docs_fts WHERE docs_fts MATCH ?
-                )
-                LIMIT 5
-                """,
-                (query, " AND ".join(token for token in query.replace(".", " ").split() if token)),
-            ).fetchall()
-            timings.append((time.perf_counter() - started) * 1000)
-    con.close()
+            result = query_pack(path, query)
+            timings.append(result["query_ms"])
+            misses += not result["found"]
     print(
         f"{path.name}: size_mb={path.stat().st_size / 1024 / 1024:.2f} runs={len(timings)} avg_ms={statistics.mean(timings):.2f} "
-        f"p95_ms={sorted(timings)[max(0, int(len(timings) * 0.95) - 1)]:.2f}"
+        f"p95_ms={sorted(timings)[max(0, int(len(timings) * 0.95) - 1)]:.2f} misses={misses}"
     )
 
 
-def _resolve_artifacts_dir(workspace_root: str | None, artifacts_dir: str | None) -> Path:
+def _resolve_artifacts_dir(
+    workspace_root: str | None, artifacts_dir: str | None
+) -> Path:
     if artifacts_dir:
         return Path(artifacts_dir).expanduser().resolve()
     if workspace_root:
@@ -62,7 +57,12 @@ def _resolve_artifacts_dir(workspace_root: str | None, artifacts_dir: str | None
 
 
 def _manifest_pack_map(artifacts_dir: Path) -> dict[str, list[Path]]:
-    result: dict[str, list[Path]] = {"platform": [], "metadata": [], "code": [], "full": []}
+    result: dict[str, list[Path]] = {
+        "platform": [],
+        "metadata": [],
+        "code": [],
+        "full": [],
+    }
     kind_map = {
         "help": "platform",
         "metadata": "metadata",
@@ -77,7 +77,9 @@ def _manifest_pack_map(artifacts_dir: Path) -> dict[str, list[Path]]:
         kind = kind_map.get(str(payload.get("kind") or "").strip())
         if not kind:
             continue
-        pack_path = artifacts_dir / manifest_path.name.replace(".manifest.json", ".db.zst")
+        pack_path = artifacts_dir / manifest_path.name.replace(
+            ".manifest.json", ".db.zst"
+        )
         if not pack_path.is_file():
             continue
         result[kind].append(pack_path)
@@ -96,7 +98,9 @@ def _dedupe(paths: list[Path]) -> list[Path]:
     return out
 
 
-def _resolve_pack_paths(workspace_root: str | None, artifacts_dir: str | None) -> dict[str, list[Path]]:
+def _resolve_pack_paths(
+    workspace_root: str | None, artifacts_dir: str | None
+) -> dict[str, list[Path]]:
     base_dir = _resolve_artifacts_dir(workspace_root, artifacts_dir)
     fallback = {
         "metadata": [base_dir / "metadata.kb.db.zst"],
@@ -105,7 +109,11 @@ def _resolve_pack_paths(workspace_root: str | None, artifacts_dir: str | None) -
         "full": [base_dir / "config.dump.db.zst"],
     }
     if workspace_root:
-        manifest_path = Path(workspace_root).expanduser().resolve() / ".onec" / "workspace.manifest.json"
+        manifest_path = (
+            Path(workspace_root).expanduser().resolve()
+            / ".onec"
+            / "workspace.manifest.json"
+        )
         if manifest_path.is_file():
             payload = load_workspace_manifest(Path(workspace_root))
             resolved = {"platform": [], "metadata": [], "code": [], "full": []}
@@ -133,9 +141,15 @@ def _resolve_pack_paths(workspace_root: str | None, artifacts_dir: str | None) -
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Query latency benchmark for local compact KB artifacts")
-    parser.add_argument("--workspace-root", default=None, help="Workspace root with .onec/packs")
-    parser.add_argument("--artifacts-dir", default=None, help="Explicit artifacts/packs directory")
+    parser = argparse.ArgumentParser(
+        description="Query latency benchmark for local compact KB artifacts"
+    )
+    parser.add_argument(
+        "--workspace-root", default=None, help="Workspace root with .onec/packs"
+    )
+    parser.add_argument(
+        "--artifacts-dir", default=None, help="Explicit artifacts/packs directory"
+    )
     parser.add_argument("--loops", type=int, default=5)
     args = parser.parse_args()
 
@@ -144,7 +158,7 @@ def main() -> int:
     for help_path in help_paths[:1]:
         _run_bench(
             help_path,
-            ["Глобальный контекст.ПрочитатьJSON", "HTTPСоединение.Получить", "ТаблицаЗначений"],
+            ["ПрочитатьJSON", "HTTPСоединение.Получить", "ТаблицаЗначений"],
             loops=args.loops,
         )
     metadata_paths = [path for path in pack_paths["metadata"] if path.exists()]
@@ -152,7 +166,7 @@ def main() -> int:
         for metadata_path in metadata_paths:
             _run_bench(
                 metadata_path,
-            ["Document.РеализацияТоваровУслуг", "Организация", "Товары"],
+                ["Document.РеализацияТоваровУслуг", "Организация", "Товары"],
                 loops=args.loops,
             )
     else:

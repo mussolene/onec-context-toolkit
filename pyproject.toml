@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "onec-context-toolkit"
-version = "0.2.0"
+version = "0.2.1"
 description = "Source-first local context toolkit for 1C: ConfigDump, code, metadata, and optional platform help"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -28,9 +28,8 @@ include-package-data = true
 
 [tool.setuptools.packages.find]
 where = ["src", "."]
-include = ["onec_help*", "scripts*", "tools*", "templates*", "skill*"]
+include = ["onec_help*", "scripts*", "tools*", "templates*"]
 
 [tool.setuptools.package-data]
 templates = ["*.tmpl"]
-skill = ["SKILL.md"]
 tools = ["1c/*"]

@@ -52,7 +52,11 @@ TOOLS: list[JSON] = [
         "inputSchema": _schema(
             {
                 "workspace_root": {"type": "string", "default": "."},
-                "platform": {"type": "array", "items": {"type": "string"}, "default": []},
+                "platform": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "default": [],
+                },
             }
         ),
     },
@@ -64,10 +68,28 @@ TOOLS: list[JSON] = [
                 "workspace_root": {"type": "string", "default": "."},
                 "need": {
                     "oneOf": [
-                        {"type": "string", "enum": ["platform", "standards", "metadata", "code", "full"]},
+                        {
+                            "type": "string",
+                            "enum": [
+                                "platform",
+                                "standards",
+                                "metadata",
+                                "code",
+                                "full",
+                            ],
+                        },
                         {
                             "type": "array",
-                            "items": {"type": "string", "enum": ["platform", "standards", "metadata", "code", "full"]},
+                            "items": {
+                                "type": "string",
+                                "enum": [
+                                    "platform",
+                                    "standards",
+                                    "metadata",
+                                    "code",
+                                    "full",
+                                ],
+                            },
                         },
                     ]
                 },
@@ -76,8 +98,16 @@ TOOLS: list[JSON] = [
                 "metadata_source": {"type": "string"},
                 "hbk_base": {"type": "string"},
                 "standards_dir": {"type": "string"},
-                "platform": {"type": "array", "items": {"type": "string"}, "default": []},
-                "base_config": {"type": "array", "items": {"type": "string"}, "default": []},
+                "platform": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "default": [],
+                },
+                "base_config": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "default": [],
+                },
             },
             ["need"],
         ),
@@ -89,7 +119,10 @@ TOOLS: list[JSON] = [
             {
                 "workspace_root": {"type": "string", "default": "."},
                 "bundle_dir": {"type": "string"},
-                "role": {"type": "string", "enum": ["platform", "standards", "metadata", "code", "full"]},
+                "role": {
+                    "type": "string",
+                    "enum": ["platform", "standards", "metadata", "code", "full"],
+                },
                 "target": {"type": "string"},
                 "all_targets": {"type": "boolean", "default": False},
                 "path_only": {"type": "boolean", "default": False},
@@ -103,13 +136,27 @@ TOOLS: list[JSON] = [
             {
                 "db": {"type": "string"},
                 "workspace_root": {"type": "string", "default": "."},
-                "role": {"type": "string", "enum": ["platform", "standards", "metadata"], "default": "platform"},
+                "role": {
+                    "type": "string",
+                    "enum": ["platform", "standards", "metadata"],
+                    "default": "platform",
+                },
                 "target": {"type": "string"},
                 "q": {"type": "string"},
-                "limit": {"type": "integer", "default": 10, "minimum": 1, "maximum": 100},
+                "limit": {
+                    "type": "integer",
+                    "default": 10,
+                    "minimum": 1,
+                    "maximum": 100,
+                },
                 "domain": {"type": "string"},
                 "version": {"type": "string"},
                 "exact": {"type": "boolean", "default": False},
+                "detail": {
+                    "type": "string",
+                    "enum": ["compact", "full"],
+                    "default": "compact",
+                },
             },
             ["q"],
         ),
@@ -122,10 +169,18 @@ TOOLS: list[JSON] = [
                 "db": {"type": "string"},
                 "workspace_root": {"type": "string", "default": "."},
                 "target": {"type": "string"},
-                "command": {"type": "string", "enum": ["stats", "modules", "symbols", "callers", "callees"]},
+                "command": {
+                    "type": "string",
+                    "enum": ["stats", "modules", "symbols", "callers", "callees"],
+                },
                 "q": {"type": "string"},
                 "symbol": {"type": "string"},
-                "limit": {"type": "integer", "default": 20, "minimum": 1, "maximum": 100},
+                "limit": {
+                    "type": "integer",
+                    "default": 20,
+                    "minimum": 1,
+                    "maximum": 100,
+                },
             },
             ["command"],
         ),
@@ -141,7 +196,12 @@ TOOLS: list[JSON] = [
                 "command": {"type": "string", "enum": ["stats", "find", "read"]},
                 "q": {"type": "string"},
                 "path": {"type": "string"},
-                "limit": {"type": "integer", "default": 20, "minimum": 1, "maximum": 100},
+                "limit": {
+                    "type": "integer",
+                    "default": 20,
+                    "minimum": 1,
+                    "maximum": 100,
+                },
             },
             ["command"],
         ),
@@ -175,7 +235,9 @@ def _load_manifest(args: JSON) -> tuple[str, Path, JSON]:
     workspace_root = _root(str(args.get("workspace_root") or "."))
     manifest_path = workspace_root / ".onec" / "workspace.manifest.json"
     if not manifest_path.is_file():
-        raise FileNotFoundError(f"workspace manifest is missing: {manifest_path}; run onec_ensure or onec-context init")
+        raise FileNotFoundError(
+            f"workspace manifest is missing: {manifest_path}; run onec_ensure or onec-context init"
+        )
     return "workspace", workspace_root, load_workspace_manifest(workspace_root)
 
 
@@ -221,7 +283,9 @@ def _resolve(args: JSON) -> JSON | str:
     if all_targets:
         resolved_all = {
             target_name: str(resolve_pack_path(path_value, base_root=manifest_root))
-            for target_name, path_value in all_target_packs(manifest, role=str(role)).items()
+            for target_name, path_value in all_target_packs(
+                manifest, role=str(role)
+            ).items()
         }
         if not resolved_all:
             raise FileNotFoundError(f"{role} pack is missing")
@@ -229,11 +293,19 @@ def _resolve(args: JSON) -> JSON | str:
             return next(iter(resolved_all.values()))
         return {"role": role, "targets": resolved_all}
 
-    resolved = resolve_target_pack(manifest, role=str(role), target=str(target) if target else None)
+    resolved = resolve_target_pack(
+        manifest, role=str(role), target=str(target) if target else None
+    )
     if not resolved:
-        raise ValueError(f"{role} pack path is ambiguous or missing; provide target or all_targets=true")
+        raise ValueError(
+            f"{role} pack path is ambiguous or missing; provide target or all_targets=true"
+        )
     resolved_path = str(resolve_pack_path(resolved, base_root=manifest_root))
-    return resolved_path if path_only else {"role": role, "target": target, "path": resolved_path}
+    return (
+        resolved_path
+        if path_only
+        else {"role": role, "target": target, "path": resolved_path}
+    )
 
 
 def _resolve_role_path(manifest: JSON, manifest_root: Path, role: str) -> str | None:
@@ -242,7 +314,11 @@ def _resolve_role_path(manifest: JSON, manifest_root: Path, role: str) -> str | 
     else:
         packs = manifest.get("packs") or {}
         value = packs.get(role) if isinstance(packs, dict) else None
-    return str(resolve_pack_path(value, base_root=manifest_root)) if isinstance(value, str) else None
+    return (
+        str(resolve_pack_path(value, base_root=manifest_root))
+        if isinstance(value, str)
+        else None
+    )
 
 
 def _resolve_db(args: JSON, role: str) -> str:
@@ -281,7 +357,11 @@ def _call_ensure(args: JSON) -> JSON:
         needs = [needs]
     if not isinstance(needs, list) or not needs:
         raise ValueError("need must be a string or non-empty array")
-    cmd = [str(REPO_ROOT / "scripts" / "ensure_workspace.py"), "--workspace-root", str(_root(args.get("workspace_root")))]
+    cmd = [
+        str(REPO_ROOT / "scripts" / "ensure_workspace.py"),
+        "--workspace-root",
+        str(_root(args.get("workspace_root"))),
+    ]
     for need in needs:
         cmd.extend(["--need", str(need)])
     option_map = {
@@ -321,14 +401,29 @@ def _capture_tool(module_name: str, argv: list[str]) -> str:
 
 def _call_tool(name: str, args: JSON) -> JSON:
     if name == "onec_status":
-        return _text(collect_status(_root(args.get("workspace_root")), requested_platforms=list(args.get("platform") or [])))
+        return _text(
+            collect_status(
+                _root(args.get("workspace_root")),
+                requested_platforms=list(args.get("platform") or []),
+            )
+        )
     if name == "onec_ensure":
         return _text(_call_ensure(args))
     if name == "onec_resolve_packs":
         return _text(_resolve(args))
     if name == "onec_query_kb":
         db = _resolve_db(args, str(args.get("role") or "platform"))
-        argv = ["--db", db, "--q", str(args["q"]), "--limit", str(args.get("limit") or 10)]
+        argv = [
+            "--db",
+            db,
+            "--q",
+            str(args["q"]),
+            "--limit",
+            str(args.get("limit") or 5),
+            "--json",
+            "--detail",
+            str(args.get("detail") or "compact"),
+        ]
         if args.get("domain"):
             argv.extend(["--domain", str(args["domain"])])
         if args.get("version"):
@@ -343,11 +438,20 @@ def _call_tool(name: str, args: JSON) -> JSON:
         if command in {"modules", "symbols"}:
             if not args.get("q"):
                 raise ValueError(f"{command} requires q")
-            argv.extend(["--q", str(args["q"]), "--limit", str(args.get("limit") or 20)])
+            argv.extend(
+                ["--q", str(args["q"]), "--limit", str(args.get("limit") or 20)]
+            )
         elif command in {"callers", "callees"}:
             if not args.get("symbol"):
                 raise ValueError(f"{command} requires symbol")
-            argv.extend(["--symbol", str(args["symbol"]), "--limit", str(args.get("limit") or 20)])
+            argv.extend(
+                [
+                    "--symbol",
+                    str(args["symbol"]),
+                    "--limit",
+                    str(args.get("limit") or 20),
+                ]
+            )
         return _text(_capture_tool("tools.query_code_pack", argv))
     if name == "onec_query_config":
         db = _resolve_db(args, "full")
@@ -356,7 +460,9 @@ def _call_tool(name: str, args: JSON) -> JSON:
         if command == "find":
             if not args.get("q"):
                 raise ValueError("find requires q")
-            argv.extend(["--q", str(args["q"]), "--limit", str(args.get("limit") or 20)])
+            argv.extend(
+                ["--q", str(args["q"]), "--limit", str(args.get("limit") or 20)]
+            )
         elif command == "read":
             if not args.get("path"):
                 raise ValueError("read requires path")
@@ -365,7 +471,9 @@ def _call_tool(name: str, args: JSON) -> JSON:
     raise KeyError(f"unknown tool: {name}")
 
 
-def _response(request_id: object, result: object | None = None, error: JSON | None = None) -> JSON:
+def _response(
+    request_id: object, result: object | None = None, error: JSON | None = None
+) -> JSON:
     payload: JSON = {"jsonrpc": "2.0", "id": request_id}
     if error is not None:
         payload["error"] = error
@@ -421,8 +529,12 @@ def serve(debug: bool = False) -> int:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Run the onec-context MCP stdio server")
-    parser.add_argument("--debug", action="store_true", help="Return Python tracebacks in MCP errors")
+    parser = argparse.ArgumentParser(
+        description="Run the onec-context MCP stdio server"
+    )
+    parser.add_argument(
+        "--debug", action="store_true", help="Return Python tracebacks in MCP errors"
+    )
     args = parser.parse_args()
     return serve(debug=args.debug)
 

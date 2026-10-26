@@ -1,60 +1,39 @@
 ---
 name: onec-platform-cli
-description: Use this supplemental skill for 1C platform CLI, standalone server, cluster administration, CREATEINFOBASE, headless CONFIG, ibsrv, ibcmd, ragent, rac, and ras questions.
+description: Choose and verify 1C platform command-line operations.
 ---
 
 # Onec Platform CLI
 
-This is a supplemental skill. Use it when the question is about:
+This is optional guidance for the main onec-context skill. Load
+[the reference](reference.md) when this topic is relevant. Executable tools live
+in the main skill or an exported bundle, not in this supplemental directory.
+Resolve their actual location before running a command. Do not assume that
+`onec-context` is installed on PATH.
 
-- `1cv8` in `CONFIG`, `ENTERPRISE`, or `CREATEINFOBASE`
-- headless and CI flows for 1C
-- `ragent`, `ras`, `rac`
-- `ibsrv`, `ibcmd`, standalone server, SSH gateway
-- temporary infobases, `ibases.v8i`, XML import/export, `.epf` / `.cfe` build routes
+Platform command-line operations are separate from reading help packs. A local
+SQLite query needs no running 1C process. Compilation, configuration loading
+and administration require the relevant installed platform tools and access.
 
-## Core rules
+Choose the tool family by the task:
 
-1. Always align the answer with the exact platform version.
-2. Distinguish cluster administration from standalone server administration.
-3. Distinguish SSH to `ibsrv` from ordinary shell or database access.
-4. Prefer temporary lightweight file infobases for batch operations when GUI-less context is required.
-5. For CI, prefer deterministic output files and result codes.
+- `1cv8` / Designer: operations on configurations and external reports or data processors.
+- `CREATEINFOBASE`: creation of an information base through the platform launcher.
+- `ibcmd` and `ibsrv`: tools available in supported platform versions for their documented tasks.
+- `ragent`, `ras`, `rac`: cluster services and administration where applicable.
 
-## Tool choice
+Check the installed version's help before forming a command. Do not assume that
+switches, transport syntax, return codes or licensing behavior are identical
+across versions and tools. Inspect generated logs and output artifacts as well
+as the process exit status.
 
-- `1cv8 CREATEINFOBASE`
-  - create a file or server infobase without GUI
-  - best for temporary build infobases
-- `1cv8 CONFIG`
-  - package Designer mode
-  - use when classic batch configurator commands are required
-- `ragent` + `ras` + `rac`
-  - cluster server administration
-  - ports, sessions, cluster state, blocking, list of infobases
-- `ibsrv` + `ibcmd`
-  - standalone server and infobase administration
-  - local PID, offline data path, or remote SSH route
+The main toolkit includes `tools/1c/build_external_data_processor.sh` and
+`tools/1c/unpack_external_data_processor.sh`. They are shell adapters around an
+installed `1cv8`, not a bundled platform. Read their adjacent README for required
+environment variables and cleanup behavior. Resolve paths from the main toolkit
+or exported bundle; a supplemental guidance skill has no executable tools.
 
-## High-signal guidance
-
-- If the task is batch build or headless import/export, assume an infobase context is required unless the command documentation clearly says otherwise.
-- If many jobs must run in parallel, use multiple independent infobases rather than one shared infobase.
-- If the user wants remote automation through standalone server, prefer `ibcmd --remote ssh://...`; do not suggest plain `ssh user@host` as if it were a normal shell session.
-- If the question is about clusters, do not route it through `ibsrv` or `ibcmd`.
-- If the question is about standalone server, do not route it through `ragent` / `ras` / `rac`.
-
-## Useful defaults
-
-- For scripted `1cv8` runs, recommend `/Out` and `/DumpResult`.
-- For temporary build workflows, avoid adding the infobase to `ibases.v8i` unless the user explicitly wants it in the list.
-- For Linux headless GUI-dependent steps, remember `Xvfb + DISPLAY`.
-
-## Working style
-
-- First classify the task: cluster, standalone server, create infobase, package configurator, or XML import/export.
-- Then name the correct tool family.
-- Then give the minimal safe command pattern.
-- Then point out which flags must be verified in the official docs for the user's platform version.
-
-See also `reference.md` in this skill folder for the condensed platform CLI map.
+Before a command that changes an information base, establish the intended target
+and the user's authorized scope. Use a disposable base when appropriate, but do
+not silently create or modify a production base. Never expose credentials in
+shared commands or logs. Do not infer success solely from the presence of a log.

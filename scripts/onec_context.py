@@ -55,9 +55,9 @@ def _print_help() -> None:
     print("1C source-first local context toolkit")
     print()
     print("quick start:")
-    print("  1. onec-context doctor --workspace-init --hbk-base <HBK_ROOT>")
-    print("  2. onec-context init --workspace-root <repo> --source-path <source> --profile base --hbk-base <HBK_ROOT> --platform <VERSION>")
-    print("  3. onec-context ensure --workspace-root <repo> --need metadata|code|full  # only when needed")
+    print("  onec-context query-kb --q 'Структура.Вставить' --exact --json  # bundled pack")
+    print("  onec-context ensure --workspace-root /path/to/project --need platform --hbk-base /path/to/platform --platform VERSION")
+    print("  onec-context ensure --workspace-root /path/to/project --need metadata --source-path /path/to/ConfigDump")
     print()
     print("commands:")
     for name in sorted(COMMAND_TO_SCRIPT):

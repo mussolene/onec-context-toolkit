@@ -1,25 +1,21 @@
-# Onec Platform Fact Check Reference
+# Onec Platform Fact Check
 
-## Use this before claiming
+Identify the exact platform version and full identifier, such as
+`HTTPСоединение.Получить`. Query the platform pack with `--exact --version` and
+`--json`. Short global names are supported; prefer the full name for members.
+Do not assume English aliases have the same exact-match behavior as stored names.
 
-- method exists
-- property exists
-- syntax is valid
-- event-handler name or module kind is correct
-- built-in object behaves a certain way
+Read `--detail full` before asserting parameter order, return types, execution
+context or restrictions. Inspect the actual fields present. The extractor may
+not have preserved every fact in the original page. Search `api_examples`
+separately when an example is needed; examples can be separate records.
 
-## Verification checklist
+Without `--exact`, the reader tries an exact match and then lexical FTS5 search.
+A nearby search result is a candidate to inspect, not proof of the requested API.
+No match does not prove absence from the language. Do not transfer a fact from
+one platform version to another without matching evidence.
 
-1. Resolve `packs.platform`.
-2. Run exact lookup first.
-3. If exact lookup fails, try the canonical object or topic name.
-4. If still not confirmed:
-   - mark as unverified
-   - do not present the claim as fact
-
-## Good examples
-
-- `HTTPСоединение.Получить`
-- `ПрочитатьJSON`
-- preprocessor directives
-- server/client execution module distinctions
+Cite the topic and version. If the source is incomplete, identify the remaining
+question and inspect the locally available original documentation. Generated
+code still needs the project's diagnostics and relevant tests. A help lookup
+is not a successful compilation or execution.

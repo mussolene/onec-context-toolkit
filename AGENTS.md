@@ -1,272 +1,105 @@
-# AGENTS
-
-Этот файл описывает operational workflow для агентов и разработчиков.
-
-## Назначение
-
-Toolkit работает как source-first слой локального 1С context:
-
-- ставит integration layer в `Codex`, `Claude`, `Cursor`
-- инициализирует конкретный workspace в `.onec/`
-- собирает packs из локальных источников
-- проверяет drift по версии платформы и версии конфигурации
-- экспортирует runtime bundle из уже собранного workspace
-- несёт отдельный supplemental knowledge layer по platform CLI и headless/server workflow
-- несёт отдельные supplemental knowledge layers по query strategy, object explanation и platform fact-check
-- несёт отдельный supplemental knowledge layer по development standards и code conventions для 1С
-
-## Архитектурная модель
-
-Один toolkit, несколько слоёв ответственности:
-
-- `runtime/integration`
-  - install scripts для `codex`, `claude`, `cursor`
-  - общий CLI `scripts/onec_context.py`
-- `source adapters`
-  - `ConfigDump` конфигурации
-  - `ConfigDump` расширения
-  - `metadata XML export` как optional fallback / verification
-  - `HBK` платформенной справки как обязательный source для language/API слоя
-- `pack builders`
-  - `platform help pack`
-  - `metadata pack`
-  - `code pack`
-  - optional `full pack`
-- `workspace binding`
-  - `.onec/workspace.manifest.json`
-  - хранит source-kind, base configs, versions, built packs, optional sources
-
-## Граница знаний
-
-Этот репозиторий не должен превращаться в общую энциклопедию по 1С.
-
-Правило такое:
-
-- `onec-context` отвечает за workspace lifecycle, packs, local query/runtime flow и source-first toolkit behavior
-- platform CLI, headless build, cluster/standalone administration и похожие темы можно подключать только как supplemental knowledge layer
-- query strategy, object explanation, platform fact-check и development standards тоже допустимы как supplemental layers, потому что они усиливают именно локальный toolkit workflow, а не подменяют его
-- supplemental layer допустим только если он напрямую помогает build/init/export/headless/admin сценариям этого toolkit
-- не смешивать supplemental knowledge с pack model, metadata/code/full runtime contract и базовым `onec-context` skill
-- не переносить сюда соседние знания "на всякий случай"; сначала проверить, поддерживают ли они реальные use cases этого repo
-
-## Источники и pack'и
-
-Primary route:
-
-- `ConfigDump` source tree -> `metadata pack`
-- `HBK` source tree -> `platform help pack`
-- `ConfigDump` source tree -> optional `code pack`
-- `ConfigDump` source tree -> optional `full pack`
-
-Optional route:
-
-- `metadata XML export` -> fallback metadata source или проверочный слой
-
-`metadata XML export` не является обязательным шагом. Его стоит оставлять как:
-
-- fallback, если нет нормального source tree
-- verification layer для спорных мест
-- дополнительный источник для уточнения реквизитов и типов
-
-## Слои
-
-Базовый обязательный слой:
-
-- `help` (`--profile base`)
-
-Опциональные слои:
-
-- `metadata` (`ensure --need metadata` или `--profile metadata`) для реквизитов, типов, табличных частей и форм
-- `code.pack` (`ensure --need code` или `--profile dev`) для анализа логики
-- `config.dump` (`ensure --need full` или `--profile full`) для lossless file-level reads
-- `standards` (`ensure --need standards` + `--with-standards`) для локальной ITS-only базы стандартов разработки
-
-## Обязательный operational loop
-
-Если работа идёт по workspace, правильный цикл такой:
-
-1. Проверить workspace:
-   - `onec-context status --workspace-root <repo> --strict`
-2. Если `.onec/workspace.manifest.json` отсутствует или stale:
-   - `onec-context init --workspace-root <repo> --source-path <repo-or-config-root> --profile base`
-3. Если для ответа не хватает слоя:
-   - `onec-context ensure --workspace-root <repo> --need standards|metadata|code|full`
-4. Разрешить точные pack paths:
-   - `onec-context resolve-packs --workspace-root <repo>`
-5. Если `resolve-packs` возвращает несколько target'ов, выбрать нужный target по имени и версии
-6. Делать query/verify/export только после этого
-
-`status` сравнивает текущий source snapshot и pack manifests и показывает, что нужно пересобрать.
-
-## Версии и drift
-
-Когда меняется:
-
-- версия платформы
-- версия расширяемой конфигурации
-- сам source tree
-
-нужно повторно пройти `status -> init/ensure -> status`.
-
-Для расширений важно явно хранить возможные `base_configs`.
-
-## Multi-root и target model
-
-Если `--source-path` указывает на папку с несколькими `Configuration.xml`, toolkit не должен падать.
-Он собирает отдельные target packs для каждого root и записывает их в `.onec/workspace.manifest.json -> targets`.
-
-Agent должен выбирать target осознанно и не хардкодить pack filenames.
-
-## Контракт ответа агента
-
-Если агент отвечает с опорой на toolkit, ответ должен явно содержать:
-
-- `target`
-  - какой target выбран; если их несколько и выбор не сделан, это нужно сказать явно
-- `used layers`
-  - какие слои реально использовались: `platform`, `standards`, `metadata`, `code`, `full`
-- `confirmed facts`
-  - только подтверждённые facts из pack/query results или version-exact platform help
-- `code-derived inferences`
-  - выводы по коду отдельно от facts
-- `unresolved assumptions`
-  - что осталось недоказанным: не тот слой, не выбран target, неполный source tree, спорная platform claim
-
-Нельзя смешивать подтверждённые факты, inference по коду и недоказанные предположения в один неразмеченный текст.
-
-## Команды для агентов
-
-Проверить prerequisites:
-
-```bash
-onec-context doctor --workspace-init --hbk-base /opt/1cv8
-```
-
-Статус:
-
-```bash
-onec-context status --workspace-root /path/to/workspace --strict
-```
-
-Достроить слой только когда он реально нужен:
-
-```bash
-onec-context ensure --workspace-root /path/to/workspace --need metadata
-onec-context ensure --workspace-root /path/to/workspace --need code
-onec-context ensure --workspace-root /path/to/workspace --need standards
-```
-
-Разрешить pack paths:
-
-```bash
-onec-context resolve-packs --workspace-root /path/to/workspace
-onec-context resolve-packs --workspace-root /path/to/workspace --role platform --path-only
-onec-context resolve-packs --workspace-root /path/to/workspace --role standards --path-only
-onec-context resolve-packs --workspace-root /path/to/workspace --role metadata --all-targets
-```
-
-При нескольких target'ах не хардкодить первый попавшийся pack. Нужно либо выбрать target осознанно, либо попросить пользователя уточнить, с какой конфигурацией работать.
-
-Metadata query:
-
-```bash
-onec-context query-kb \
-  --db "$(onec-context resolve-packs --workspace-root /path/to/workspace --role metadata --target <source-identity> --path-only)" \
-  --q "Document.РеализацияТоваровУслуг.Товары.Номенклатура" \
-  --exact --limit 10
-```
-
-Code query:
-
-```bash
-onec-context query-code \
-  --db "$(onec-context resolve-packs --workspace-root /path/to/workspace --role code --target <source-identity> --path-only)" \
-  symbols --q "УстановитьСтатусДокумента"
-```
-
-Full pack query:
-
-```bash
-onec-context query-config \
-  --db "$(onec-context resolve-packs --workspace-root /path/to/workspace --role full --target <source-identity> --path-only)" \
-  find --q "РеализацияТоваровУслуг"
-```
-
-Verify and benchmark:
-
-```bash
-onec-context verify --workspace-root /path/to/workspace
-onec-context benchmark --workspace-root /path/to/workspace --loops 3
-```
-
-ITS standards snapshot (ITS-only):
-
-```bash
-onec-context fetch-its-standards --output-dir /path/to/workspace/data/standards/its-v8std
-```
-
-## Карта репозитория
-
-- `bin/onec-context` — repo-local CLI entrypoint
-- `scripts/onec_context.py` — универсальный Python entrypoint; при отсутствии локальной `.venv` сам запускает bootstrap
-- `docs/1c-platform-cli.md` — distilled reference по platform CLI и headless/server операциям 1С
-- `templates/*skill*.tmpl` и `templates/*rule*.tmpl` — self-contained supplemental guidance layers для агентов
-- `scripts/init_workspace.py` — source-first init
-- `scripts/status_workspace.py` — drift/status check
-- `scripts/install_agent.py` — integration install
-- `scripts/export_skill_bundle.py` — bundle export из `.onec/`
-- `scripts/build_local_kb.py` — help/metadata builder
-- `scripts/build_code_pack.py` — code pack builder
-- `scripts/build_config_pack.py` — full lossless pack builder
-- `src/onec_help/metadata_index/` — source-driven metadata parsing from `ConfigDump`
-- `tools/` — runtime query/verify/benchmark tools
-- `templates/` — templates для agent installs и bundle docs
-
-## Полный rebuild одного workspace
-
-```bash
-onec-context status --workspace-root .
-onec-context init --workspace-root . --source-path . --profile full --hbk-base /opt/1cv8 --platform 8.2.19.130
-onec-context verify --workspace-root .
-onec-context export --workspace-root . --archive
-```
-
-## OACS / ACS development workflow
-
-For substantial features, refactors, bug fixes, and release work, use OACS/ACS
-for governed local development memory and evidence instead of writing a
-repo-local sidecar artifact tree.
-
-Required sequence:
-
-1. State the task scope and explicit acceptance criteria (`AC1`, `AC2`, ...)
-   before implementation.
-2. Build or inspect repo context through OACS when prior project memory matters:
-   `acs context build --intent repo_development --scope project --json`.
-3. Treat command outputs, external retrieval, CI results, package publication
-   results, and other canonical project facts as evidence:
-   `acs tool ingest-result ...`.
-4. Use `acs evidence inspect <ev_...>` and
-   `acs evidence list --kind tool_result --json` for proof/debugging.
-5. If evidence should become durable project knowledge, distill it into memory
-   and attach the evidence ref with `acs memory sharpen`.
-6. Run a fresh verification pass against the current codebase and rerun the
-   relevant checks.
-7. If verification is not `PASS`, explain the problem, apply the smallest safe
-   fix, and reverify.
-
-Hard rules:
-
-- Do not claim completion unless every acceptance criterion is `PASS`.
-- Verifiers judge current code and current command results, not prior chat
-  claims.
-- Fixes should be the smallest defensible diff.
-- OACS is not the tool orchestrator. It records external tool results as
-  governed evidence/context for agents to use.
-- Standalone tool-result evidence does not enter `ContextCapsule.evidence_refs`
-  by itself. It is projected only through included memories that reference it.
-- Do not commit `.agent/tasks`, raw local proof artifacts, `.oacs`, local
-  databases, passphrases, or other private agent state.
-- This root `AGENTS.md` block is the repo-wide Codex baseline. More-specific
-  nested `AGENTS.override.md` or `AGENTS.md` files still take precedence for
-  their directory trees.
+# Работа с Onec Context Toolkit
+
+## Назначение и границы
+
+Toolkit устанавливает skill с инструментами, собирает локальные пакеты из
+выбранных источников и читает их без сервера. Основной маршрут пользователя
+описан в [README](README.md). Поддерживайте README, шаблоны установки и
+инструкцию экспортируемого пакета согласованными с текущими командами.
+
+## Источники и слои
+
+| Роль | Источник | Чтение |
+| --- | --- | --- |
+| `platform` | HBK выбранной версии платформы | `query-kb` |
+| `standards` | локальные статьи ITS v8std | `query-kb --role standards` |
+| `metadata` | ConfigDump; отдельно выбранная выгрузка метаданных | `query-kb --role metadata` |
+| `code` | модули BSL в ConfigDump | `query-code` |
+| `full` | исходные файлы ConfigDump | `query-config` |
+
+Пакеты справки, стандартов и метаданных требуют схему 2. Для старого формата
+нужна пересборка. Скрытый переход к старому поиску не допускается.
+Метаданные, код, стандарты и полные файлы подключаются только под задачу.
+Профили сборки: `base`, `metadata`, `dev`, `full`. Параметры уточняйте через
+`python3 scripts/onec_context.py init --help`.
+
+## Рабочий цикл
+
+1. Определите вопрос, источник и нужную версию. Не выбирайте новую версию
+   платформы вместо версии проекта без основания.
+2. Для платформы используйте подходящий готовый пакет внутри skill или проекта.
+   Без `--db` и `--workspace-root` поиск читает `artifacts/platform.kb.db.zst`.
+3. Если нужна подготовка, вызовите `ensure --workspace-root ... --need ...`
+   с известными путями источников. Не запускайте сборку перед каждым вопросом.
+4. Получите актуальные пути через `resolve-packs`. Для нескольких конфигураций
+   выберите `--target`, не угадывайте имя файла или первый элемент списка.
+5. Запрашивайте точное полное имя, затем при необходимости FTS5. Используйте
+   `--detail full` для полного сохранённого результата, `--domain api_examples`
+   для отдельных примеров. Поиск не гарантирует полноту исходной справки.
+6. После изменения кода запустите диагностику BSL и тесты проекта.
+
+`ensure` сохраняет выбранные слои. Проверка повторного использования платформы
+учитывает содержимое HBK и сборщик. Проверка конфигурации не охватывает каждую
+правку BSL/XML. После изменения исходников явно выполняйте `init` с нужным
+профилем. `status` служит диагностикой, а `verify` проверяет только ограниченный
+набор условий и запросов, не правильность кода 1С.
+
+## Установка и экспорт
+
+Установщик по умолчанию ставит основной skill с инструментами и справочными
+материалами. `--supplemental` добавляет отдельные специализированные skills.
+`--platform-pack` вкладывает готовую справку. Повторная установка сохраняет
+окружение и вложенную базу.
+
+`export` создаёт пакет для чтения с `tools/`, `artifacts/`, инструкцией и картой
+`bundle.manifest.json`. В нём нет `scripts/onec_context.py` и сборщиков.
+Общие справочные материалы должны работать в обоих вариантах: не требуйте
+команд подготовки из экспортируемого пакета.
+
+## Хранение и уборка
+
+Карта проекта находится в `.onec/workspace.manifest.json`. Общие роли лежат
+в `packs.platform` и `packs.standards`; роли конфигурации находятся в
+`targets.*.packs.metadata`, `code`, `full`. Источники задаются аргументами или env.
+
+HBK извлекаются во временный каталог. Сборка использует временные промежуточные
+файлы, которые удаляются при обычном завершении и исключениях. Готовые пакеты
+сохраняются. SQLite извлекается для чтения в общий кэш, расположение которого
+можно задать через `ONEC_CONTEXT_CACHE_DIR`. После успешного извлечения новой
+версии удаляется прежний кэш того же исходного пакета. Исходники пользователя
+и действующий кэш не являются мусором. Не обещайте уборку после SIGKILL.
+
+## Ответы агента
+
+Указывайте значимые для ответа версию, выбранную конфигурацию и источник.
+Разделяйте подтверждённые факты, выводы по коду и непроверенные предположения.
+Отсутствие результата означает отсутствие подтверждения в выбранном пакете.
+Краткая выдача может сокращать описание; полная запись также ограничена тем,
+что извлёк сборщик. Пример из справки не заменяет проверку нового кода.
+
+OACS может хранить решения проекта, но автоматического адаптера в toolkit нет.
+Материалы платформы, ITS и конфигурации остаются в согласованном локальном
+периметре. Экспорт не означает разрешения распространять их публично.
+
+## Разработка и проверка
+
+- `scripts/`: установка, подготовка окружения, сборка, состояние и экспорт.
+- `src/onec_help/`: извлечение данных, чтение сжатых пакетов и карта проекта.
+- `tools/`: чтение пакетов и проверки; `tools/1c/` содержит отдельные помощники платформы.
+- `templates/`: инструкции установленного skill, дополнительные skills и правила Cursor.
+- `templates/exported_skill.md.tmpl`: инструкция экспортируемого пакета для чтения.
+- `docs/` и `examples/`: пользовательские материалы и воспроизводимые сценарии.
+
+Запускайте `python3 -m unittest discover -s tests -v` в изолированных временных
+каталогах. Для изменений документации проверяйте ссылки, подстановку шаблонов
+установщиком и экспортером, а также соответствие команд `--help`.
+Проверяйте актуальные файлы и результаты, не заменяйте их утверждениями из чата.
+
+## OACS Project Policy
+
+For substantial repository development, use the globally installed `oacs`
+Skill with this repository's project memory. The Skill owns retrieval,
+evidence, checkpoints, resume, and compaction. Current files and verification
+remain authoritative. Do not commit `.agent/tasks`, raw local proof artifacts,
+OACS databases, passphrases, or private agent state. More-specific nested
+instructions still take precedence for their directory trees.

@@ -1,10 +1,11 @@
 ---
-description: Verify 1C platform and language facts against the local platform help pack
+description: Verify 1C platform API claims against versioned local help.
 globs:
 alwaysApply: false
 ---
 
-- Treat platform API or syntax claims as unverified until checked in the local `platform` pack.
-- Use exact lookup first for `Type.Method`, built-in object names, or syntax topics.
-- Separate confirmed facts from inferences.
-- Do not answer platform questions from configuration code when the platform help pack can verify them directly.
+Read `{skill_rel_root}/references/platform-fact-check.md` when relevant.
+Use the main skill's tools at `{skill_rel_root}/scripts/onec_context.py`.
+Choose the required source, version and configuration before querying.
+Use existing packs first; prepare missing layers with `ensure` only when needed.
+Separate retrieved facts, deductions and unresolved assumptions.

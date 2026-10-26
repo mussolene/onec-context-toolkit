@@ -16,6 +16,8 @@ from typing import Any
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
 
 def _now_iso() -> str:
@@ -83,11 +85,15 @@ def _slug_part(value: str) -> str:
 def _platform_pack_stem(requested_versions: list[str]) -> str:
     if not requested_versions:
         return "platform.all"
-    uniq = sorted({_slug_part(version) for version in requested_versions if str(version).strip()})
+    uniq = sorted(
+        {_slug_part(version) for version in requested_versions if str(version).strip()}
+    )
     return "platform." + "+".join(uniq)
 
 
-def _pack_paths(onec_root: Path, *, source_stem: str, requested_platforms: list[str]) -> dict[str, dict[str, Path]]:
+def _pack_paths(
+    onec_root: Path, *, source_stem: str, requested_platforms: list[str]
+) -> dict[str, dict[str, Path]]:
     cache_dir = onec_root / "cache"
     packs_dir = onec_root / "packs"
     manifests_dir = onec_root / "manifests"
@@ -208,10 +214,24 @@ def init_workspace(args: argparse.Namespace) -> dict[str, Any]:
 
     source_path = Path(args.source_path or args.workspace_root).expanduser().resolve()
     config_infos = _config_source_infos(source_path)
-    source_layout = "single-root" if len(config_infos) == 1 else "multi-root" if config_infos else "no-config-root"
-    detected_kind = config_infos[0].source_kind if len(config_infos) == 1 else "multi-root" if config_infos else "unknown"
+    source_layout = (
+        "single-root"
+        if len(config_infos) == 1
+        else "multi-root"
+        if config_infos
+        else "no-config-root"
+    )
+    detected_kind = (
+        config_infos[0].source_kind
+        if len(config_infos) == 1
+        else "multi-root"
+        if config_infos
+        else "unknown"
+    )
     source_kind = args.source_kind if args.source_kind != "auto" else detected_kind
-    build_help, build_metadata, build_code, build_full, build_standards = _build_flags(args)
+    build_help, build_metadata, build_code, build_full, build_standards = _build_flags(
+        args
+    )
 
     manifest: dict[str, Any] = {
         "format": "onec_workspace_manifest_v2",
@@ -235,9 +255,14 @@ def init_workspace(args: argparse.Namespace) -> dict[str, Any]:
         )
     standards_dir: Path | None = None
     if build_standards:
-        standards_dir = Path(
-            args.standards_dir or (workspace_root / "data" / "standards" / "its-v8std")
-        ).expanduser().resolve()
+        standards_dir = (
+            Path(
+                args.standards_dir
+                or (workspace_root / "data" / "standards" / "its-v8std")
+            )
+            .expanduser()
+            .resolve()
+        )
         manifest["optional_sources"]["standards_dir"] = str(standards_dir)
 
     if config_infos:
@@ -275,7 +300,9 @@ def init_workspace(args: argparse.Namespace) -> dict[str, Any]:
                     str(pack_paths["metadata"]["manifest"]),
                 ]
                 _run(metadata_args)
-                target_manifest["packs"]["metadata"] = str(pack_paths["metadata"]["zst"])
+                target_manifest["packs"]["metadata"] = str(
+                    pack_paths["metadata"]["zst"]
+                )
 
                 if build_code:
                     code_args = [
@@ -377,7 +404,22 @@ def init_workspace(args: argparse.Namespace) -> dict[str, Any]:
         ]
         for version in args.platform or []:
             help_args.extend(["--platform", version])
-        _run(help_args)
+        from scripts.build_local_kb import help_source_snapshot
+
+        source_snapshot = help_source_snapshot(hbk_base, list(args.platform or []))
+        old_path = pack_paths["platform"]["manifest"]
+        previous = json.loads(old_path.read_text()) if old_path.is_file() else {}
+        archive = pack_paths["platform"]["zst"]
+        reusable = (
+            archive.is_file()
+            and previous.get("source_snapshot") == source_snapshot
+            and previous.get("stats", {}).get("zst_bytes") == archive.stat().st_size
+        )
+        if reusable:
+            print("Platform help: reusing verified source snapshot", file=sys.stderr)
+        else:
+            help_args.append("--no-keep-db")
+            _run(help_args)
         manifest["packs"]["platform"] = str(pack_paths["platform"]["zst"])
         manifest["optional_sources"]["hbk_base"] = str(hbk_base)
 
@@ -427,29 +469,89 @@ def init_workspace(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Initialize a source-first 1C workspace context")
+    parser = argparse.ArgumentParser(
+        description="Initialize a source-first 1C workspace context"
+    )
     parser.add_argument("--workspace-root", default=".")
     parser.add_argument("--source-path", default=".")
-    parser.add_argument("--source-kind", default="auto", choices=["auto", "configdump", "extension", "metadata-export"])
+    parser.add_argument(
+        "--source-kind",
+        default="auto",
+        choices=["auto", "configdump", "extension", "metadata-export"],
+    )
     parser.add_argument(
         "--profile",
         default="base",
         choices=["base", "metadata", "dev", "full"],
         help="base=help only, metadata=help+metadata, dev=help+metadata+code, full=help+metadata+code+full-pack",
     )
-    parser.add_argument("--base-config", action="append", default=[], help="Possible base configuration IDs/names for an extension workspace.")
-    parser.add_argument("--metadata-source", default=None, help="Optional metadata XML export dir/file for fallback or verification.")
-    parser.add_argument("--hbk-base", default=None, help="Optional HBK root; may point to a platform root, exact version dir, or version/bin dir. Defaults to env or /opt/1cv8 when available.")
-    parser.add_argument("--platform", action="append", default=[], help="Optional platform versions to include when building help.")
-    parser.add_argument("--without-help", action="store_true", help="Disable platform help even though it is part of the default base profile.")
-    parser.add_argument("--with-metadata", action="store_true", help="Also build metadata on top of the selected profile.")
-    parser.add_argument("--with-code", action="store_true", help="Also build code.pack on top of the selected profile.")
-    parser.add_argument("--with-full-pack", action="store_true", help="Also build lossless ConfigDump pack.")
-    parser.add_argument("--with-standards", action="store_true", help="Also build ITS standards pack.")
-    parser.add_argument("--standards-dir", default=None, help="Directory with ITS markdown files for standards pack input.")
-    parser.add_argument("--fetch-its-standards", action="store_true", help="Fetch ITS v8std markdown before standards pack build.")
-    parser.add_argument("--cleanup-intermediate", action="store_true", default=True, help="Remove intermediate work/jsonl directories after packs are built (default: true).")
-    parser.add_argument("--no-cleanup-intermediate", dest="cleanup_intermediate", action="store_false", help="Keep intermediate work/jsonl directories.")
+    parser.add_argument(
+        "--base-config",
+        action="append",
+        default=[],
+        help="Possible base configuration IDs/names for an extension workspace.",
+    )
+    parser.add_argument(
+        "--metadata-source",
+        default=None,
+        help="Optional metadata XML export dir/file for fallback or verification.",
+    )
+    parser.add_argument(
+        "--hbk-base",
+        default=None,
+        help="Optional HBK root; may point to a platform root, exact version dir, or version/bin dir. Defaults to env or /opt/1cv8 when available.",
+    )
+    parser.add_argument(
+        "--platform",
+        action="append",
+        default=[],
+        help="Optional platform versions to include when building help.",
+    )
+    parser.add_argument(
+        "--without-help",
+        action="store_true",
+        help="Disable platform help even though it is part of the default base profile.",
+    )
+    parser.add_argument(
+        "--with-metadata",
+        action="store_true",
+        help="Also build metadata on top of the selected profile.",
+    )
+    parser.add_argument(
+        "--with-code",
+        action="store_true",
+        help="Also build code.pack on top of the selected profile.",
+    )
+    parser.add_argument(
+        "--with-full-pack",
+        action="store_true",
+        help="Also build lossless ConfigDump pack.",
+    )
+    parser.add_argument(
+        "--with-standards", action="store_true", help="Also build ITS standards pack."
+    )
+    parser.add_argument(
+        "--standards-dir",
+        default=None,
+        help="Directory with ITS markdown files for standards pack input.",
+    )
+    parser.add_argument(
+        "--fetch-its-standards",
+        action="store_true",
+        help="Fetch ITS v8std markdown before standards pack build.",
+    )
+    parser.add_argument(
+        "--cleanup-intermediate",
+        action="store_true",
+        default=True,
+        help="Remove intermediate work/jsonl directories after packs are built (default: true).",
+    )
+    parser.add_argument(
+        "--no-cleanup-intermediate",
+        dest="cleanup_intermediate",
+        action="store_false",
+        help="Keep intermediate work/jsonl directories.",
+    )
     args = parser.parse_args()
     manifest = init_workspace(args)
     print(json.dumps(_public_payload(manifest), ensure_ascii=False, indent=2))

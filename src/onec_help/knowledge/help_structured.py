@@ -35,7 +35,10 @@ API_TOPICS_FILE = "api_topics.jsonl"
 API_TOPICS_COLLECTION_NAME = "onec_help_topics"
 _WORKFLOW_RELATIONS: tuple[tuple[str, str], ...] = (
     ("СхемаКомпоновкиДанных", "ИсточникДоступныхНастроекКомпоновкиДанных"),
-    ("ИсточникДоступныхНастроекКомпоновкиДанных", "КомпоновщикНастроекКомпоновкиДанных"),
+    (
+        "ИсточникДоступныхНастроекКомпоновкиДанных",
+        "КомпоновщикНастроекКомпоновкиДанных",
+    ),
     ("КомпоновщикНастроекКомпоновкиДанных", "КомпоновщикМакетаКомпоновкиДанных"),
     ("КомпоновщикМакетаКомпоновкиДанных", "ПроцессорКомпоновкиДанных"),
     (
@@ -74,7 +77,14 @@ _GENERIC_BREADCRUMB = {
     "constructors",
 }
 _CODE_BLOCK_RE = re.compile(r"```(?:\w+)?\s*\n(.*?)```", re.DOTALL)
-_STRUCTURED_MEMBER_KINDS = {"method", "property", "event", "constructor", "function", "field"}
+_STRUCTURED_MEMBER_KINDS = {
+    "method",
+    "property",
+    "event",
+    "constructor",
+    "function",
+    "field",
+}
 _STRUCTURED_OBJECT_KINDS = {
     "type",
     "manager",
@@ -96,7 +106,10 @@ _INLINE_SECTION_LABELS = {
     "Использование в версии:": "platform_since",
 }
 _INLINE_SECTION_RE = re.compile(
-    "|".join(re.escape(label) for label in sorted(_INLINE_SECTION_LABELS, key=len, reverse=True))
+    "|".join(
+        re.escape(label)
+        for label in sorted(_INLINE_SECTION_LABELS, key=len, reverse=True)
+    )
 )
 
 _METADATA_COLLECTION_OBJECT_TYPES: dict[str, str] = {
@@ -141,7 +154,9 @@ def canonical_topic_path(full_path: str, version: str) -> str:
 
 
 # Keys excluded from content-hash merge (identity / bookkeeping).
-_HASH_MERGE_EXCLUDE: frozenset[str] = frozenset({"id", "version", "versions", "content_hash"})
+_HASH_MERGE_EXCLUDE: frozenset[str] = frozenset(
+    {"id", "version", "versions", "content_hash"}
+)
 
 
 def _stable_record_hash_for_merge(record: dict[str, Any]) -> str:
@@ -189,7 +204,9 @@ def _merge_version_strings(*groups: list[str]) -> list[str]:
 def _merge_two_content_records(a: dict[str, Any], b: dict[str, Any]) -> dict[str, Any]:
     """Last write wins for fields; union versions."""
     out = dict(b)
-    merged_v = _merge_version_strings(_record_version_values(a), _record_version_values(b))
+    merged_v = _merge_version_strings(
+        _record_version_values(a), _record_version_values(b)
+    )
     if merged_v:
         out["versions"] = merged_v
         out["version"] = merged_v[0]
@@ -214,7 +231,9 @@ def _finalize_merged_record(
     return out
 
 
-def payload_matches_platform_version(payload: dict[str, Any], version: str | None) -> bool:
+def payload_matches_platform_version(
+    payload: dict[str, Any], version: str | None
+) -> bool:
     """True if payload applies to the given platform version (single or merged ``versions``)."""
     if not version or not str(version).strip():
         return True
@@ -240,7 +259,9 @@ def _merge_snapshot_records(
         else:
             buckets[key] = _merge_two_content_records(buckets[key], rec)
     ordered = sorted(buckets.keys(), key=lambda k: (k[0], k[1]))
-    return [_finalize_merged_record(buckets[k], k[1], id_suffix=id_suffix) for k in ordered]
+    return [
+        _finalize_merged_record(buckets[k], k[1], id_suffix=id_suffix) for k in ordered
+    ]
 
 
 def _topic_point_id(path: str, version: str = "", language: str = "") -> int:
@@ -263,7 +284,9 @@ def _compact_summary(value: str, max_chars: int = 500) -> str:
     return text[: max_chars - 3].rstrip() + "..."
 
 
-def _strip_inline_title_noise(text: str, title: str, breadcrumb: list[str] | None) -> str:
+def _strip_inline_title_noise(
+    text: str, title: str, breadcrumb: list[str] | None
+) -> str:
     lines = [line.strip() for line in (text or "").splitlines() if line.strip()]
     normalized_title = _strip_title_suffix(title).lower()
     noise = {normalized_title}
@@ -306,9 +329,17 @@ def _member_parent_from_breadcrumb(title: str, breadcrumb: list[str] | None) -> 
     return ""
 
 
-def _normalize_api_name(title: str, entity_type: str, breadcrumb: list[str] | None) -> str:
+def _normalize_api_name(
+    title: str, entity_type: str, breadcrumb: list[str] | None
+) -> str:
     base = _strip_title_suffix(title)
-    if "." in base or entity_type not in {"method", "property", "event", "constructor", "field"}:
+    if "." in base or entity_type not in {
+        "method",
+        "property",
+        "event",
+        "constructor",
+        "field",
+    }:
         return base
     parent = _member_parent_from_breadcrumb(base, breadcrumb)
     if not parent:
@@ -323,7 +354,9 @@ def _infer_member_kind(topic_path: str, title: str, entity_type: str) -> str:
     path = (topic_path or "").replace("\\", "/").lower()
     title_clean = (title or "").strip()
     if "/methods/" in path:
-        if "/script functions/" in path or title_clean.startswith("Встроенные функции языка."):
+        if "/script functions/" in path or title_clean.startswith(
+            "Встроенные функции языка."
+        ):
             return "function"
         return "method"
     if "/tables/" in path and "/fields/" in path:
@@ -408,7 +441,9 @@ def _topic_doc_kind(topic_path: str) -> str:
 
 
 def _has_structured_api_sections(sections: dict[str, str]) -> bool:
-    return any(sections.get(key) for key in ("syntax", "params", "returns", "availability"))
+    return any(
+        sections.get(key) for key in ("syntax", "params", "returns", "availability")
+    )
 
 
 def _should_index_object_topic(
@@ -421,14 +456,16 @@ def _should_index_object_topic(
     if not _has_structured_api_sections(sections):
         path = (topic_path or "").replace("\\", "/").lower()
         return "/objects/" in path and not any(
-            marker in path for marker in ("/methods/", "/properties/", "/events/", "/ctors/")
+            marker in path
+            for marker in ("/methods/", "/properties/", "/events/", "/ctors/")
         )
     path = (topic_path or "").replace("\\", "/").lower()
     title_base = _strip_title_suffix(title)
     if title_base.startswith("ОбъектМетаданных:"):
         return True
     return "/objects/" in path and not any(
-        marker in path for marker in ("/methods/", "/properties/", "/events/", "/ctors/")
+        marker in path
+        for marker in ("/methods/", "/properties/", "/events/", "/ctors/")
     )
 
 
@@ -499,40 +536,37 @@ def _parse_param_lines(text: str) -> list[dict[str, str]]:
             )
         if params:
             return params
-    idx = 0
-    while idx < len(lines):
-        line = lines[idx]
-        if line.startswith("-"):
-            line = line.lstrip("- ").strip()
-        if line.startswith("<") and ">" in line:
-            name = line
-            type_value = ""
-            description = ""
-            if idx + 1 < len(lines) and lines[idx + 1].startswith("Тип:"):
-                type_value = lines[idx + 1].removeprefix("Тип:").strip()
-                idx += 1
-            if idx + 1 < len(lines):
-                description = lines[idx + 1]
-                idx += 1
-            params.append({"name": name, "type": type_value or "—", "description": description})
-        else:
-            m = re.match(r"\*\*(.+?)\*\*\s+\((.+?)\)(?:\s+—\s+(.*))?$", line)
-            if m:
-                params.append(
-                    {
-                        "name": m.group(1).strip(),
-                        "type": m.group(2).strip(),
-                        "description": (m.group(3) or "").strip(),
-                    }
-                )
-            elif line:
-                params.append({"name": line, "type": "", "description": ""})
-        idx += 1
+    for line in lines:
+        clean = line.removeprefix("- ").strip()
+        match = re.match(r"\*\*(.+?)\*\*\s+\((.*?)\)(?:\s+[-\u2014]\s+(.*))?$", clean)
+        if match:
+            params.append(
+                {
+                    "name": match.group(1).strip(),
+                    "type": match.group(2).strip(),
+                    "description": (match.group(3) or "").strip(),
+                }
+            )
+        elif re.match(
+            r"^<[^>]+>(?:\s*\((?:не)?обязательный\))?$", clean, re.IGNORECASE
+        ):
+            params.append({"name": clean, "type": "", "description": ""})
+        elif params:
+            if clean.startswith("Тип:") and not params[-1]["type"]:
+                params[-1]["type"] = clean.removeprefix("Тип:").strip()
+            else:
+                params[-1]["description"] = (
+                    params[-1]["description"] + "\n" + line
+                ).strip()
     return params
 
 
 def _extract_code_blocks(md_text: str) -> list[str]:
-    return [block.strip() for block in _CODE_BLOCK_RE.findall(md_text or "") if block.strip()]
+    return [
+        block.strip()
+        for block in _CODE_BLOCK_RE.findall(md_text or "")
+        if block.strip()
+    ]
 
 
 def _extract_see_also(section_text: str) -> list[str]:
@@ -605,25 +639,14 @@ def _extract_restrictions(*parts: str) -> str:
     if not text:
         return ""
     lines = [line.strip() for line in text.splitlines() if line.strip()]
-    keywords = (
-        "только",
-        "недоступ",
-        "не поддерж",
-        "не использ",
-        "клиент",
-        "сервер",
-        "интерактив",
-        "внешнее соединение",
-        "мобильн",
-        "веб-клиент",
-        "тонкий клиент",
-        "толстый клиент",
+    pattern = re.compile(
+        r"\b(?:только|недоступ\w*|запрещ\w*|огранич\w*)\b"
+        r"|\bне\s+(?:поддерж\w*|использ\w*|доступ\w*|допуска\w*|может|могут)\b"
+        r"|\b(?:only|unavailable|unsupported|must\s+not|not\s+supported)\b",
+        re.IGNORECASE,
     )
-    matched = [line for line in lines if any(keyword in line.lower() for keyword in keywords)]
-    if matched:
-        return _normalize_text("\n".join(matched))
-    compact = " ".join(text.split())
-    return compact if len(compact) <= 400 else compact[:397].rstrip() + "..."
+    matched = [line for line in lines if pattern.search(line)]
+    return _normalize_text("\n".join(matched))
 
 
 def _returns_from_description(description: str) -> str:
@@ -771,7 +794,10 @@ def _infer_resolver_family(owner_or_object_name: str) -> str:
         value = value.split(".", 1)[1].strip()
     if value.startswith("ОбъектМетаданныхКонфигурация."):
         value = value.split(".", 1)[1].strip()
-    if value == "Глобальный контекст.Метаданные" or value == "ОбъектМетаданныхКонфигурация":
+    if (
+        value == "Глобальный контекст.Метаданные"
+        or value == "ОбъектМетаданныхКонфигурация"
+    ):
         return "Метаданные"
     if value == "ПеречислимыеСвойстваОбъектовМетаданных":
         return "СвойстваОбъектов"
@@ -805,7 +831,9 @@ def _infer_resolver_family(owner_or_object_name: str) -> str:
     return ""
 
 
-def _surface_aliases_for_member(full_name: str, owner_name: str, member_name: str) -> list[str]:
+def _surface_aliases_for_member(
+    full_name: str, owner_name: str, member_name: str
+) -> list[str]:
     aliases: list[str] = []
     if full_name == "Глобальный контекст.Метаданные":
         return ["Метаданные"]
@@ -813,7 +841,10 @@ def _surface_aliases_for_member(full_name: str, owner_name: str, member_name: st
         return ["Метаданные.СвойстваОбъектов"]
     if owner_name == "ПеречислимыеСвойстваОбъектовМетаданных" and member_name:
         return [f"Метаданные.СвойстваОбъектов.{member_name}"]
-    if owner_name == "ОбъектМетаданныхКонфигурация" and member_name in _METADATA_COLLECTION_OBJECT_TYPES:
+    if (
+        owner_name == "ОбъектМетаданныхКонфигурация"
+        and member_name in _METADATA_COLLECTION_OBJECT_TYPES
+    ):
         return [f"Метаданные.{member_name}"]
     if owner_name == "Глобальный контекст" and member_name:
         return [member_name]
@@ -821,11 +852,15 @@ def _surface_aliases_for_member(full_name: str, owner_name: str, member_name: st
     from .language_resolver import _SURFACE_FAMILY_SPECS
 
     for spec in _SURFACE_FAMILY_SPECS.values():
-        placeholder_member = f"{spec.collection_manager}.{spec.collection_item_placeholder}"
+        placeholder_member = (
+            f"{spec.collection_manager}.{spec.collection_item_placeholder}"
+        )
         if full_name == f"Глобальный контекст.{spec.family}":
             aliases = _extend_unique(aliases, spec.family)
         elif full_name == placeholder_member:
-            aliases = _extend_unique(aliases, f"{spec.family}.{spec.collection_item_placeholder}")
+            aliases = _extend_unique(
+                aliases, f"{spec.family}.{spec.collection_item_placeholder}"
+            )
         elif owner_name == spec.item_manager_template and member_name:
             aliases = _extend_unique(
                 aliases,
@@ -847,7 +882,9 @@ def _surface_aliases_for_object(object_name: str) -> list[str]:
         if object_name == spec.collection_manager:
             aliases = _extend_unique(aliases, spec.family)
         elif object_name == spec.item_manager_template:
-            aliases = _extend_unique(aliases, f"{spec.family}.{spec.collection_item_placeholder}")
+            aliases = _extend_unique(
+                aliases, f"{spec.family}.{spec.collection_item_placeholder}"
+            )
     return aliases
 
 
@@ -864,7 +901,13 @@ def _typed_relations_for_member(
     relations: list[dict[str, Any]] = []
     seq = 1
 
-    def add(target_name: str, link_kind: str, *, target_lookup: str = "object", reason: str = "") -> None:
+    def add(
+        target_name: str,
+        link_kind: str,
+        *,
+        target_lookup: str = "object",
+        reason: str = "",
+    ) -> None:
         nonlocal seq
         target = str(target_name or "").strip()
         if not target:
@@ -879,7 +922,9 @@ def _typed_relations_for_member(
             return
         relations.append(
             {
-                "id": _topic_point_id(f"{topic_path}#rel-{link_kind}-{seq}", version, language),
+                "id": _topic_point_id(
+                    f"{topic_path}#rel-{link_kind}-{seq}", version, language
+                ),
                 "source_full_name": full_name,
                 "target_name": target,
                 "target_lookup": target_lookup,
@@ -895,18 +940,33 @@ def _typed_relations_for_member(
         seq += 1
 
     for type_name in record.get("value_types") or []:
-        add(type_name, "returns_type", reason="normalized value type from structured help")
+        add(
+            type_name,
+            "returns_type",
+            reason="normalized value type from structured help",
+        )
     for alias in record.get("surface_aliases") or []:
-        add(alias, "surface_alias", target_lookup="alias", reason="canonical BSL surface-syntax alias")
+        add(
+            alias,
+            "surface_alias",
+            target_lookup="alias",
+            reason="canonical BSL surface-syntax alias",
+        )
 
     if full_name == "Глобальный контекст.Метаданные":
         add("ОбъектМетаданныхКонфигурация", "global_property_returns_type")
-    elif owner_name == "ОбъектМетаданныхКонфигурация" and member_name == "СвойстваОбъектов":
+    elif (
+        owner_name == "ОбъектМетаданныхКонфигурация"
+        and member_name == "СвойстваОбъектов"
+    ):
         add("ПеречислимыеСвойстваОбъектовМетаданных", "metadata_property_returns_type")
     elif owner_name == "ПеречислимыеСвойстваОбъектовМетаданных":
         for type_name in record.get("value_types") or []:
             add(type_name, "metadata_enum_property_returns_system_enum")
-    elif owner_name == "ОбъектМетаданныхКонфигурация" and member_name in _METADATA_COLLECTION_OBJECT_TYPES:
+    elif (
+        owner_name == "ОбъектМетаданныхКонфигурация"
+        and member_name in _METADATA_COLLECTION_OBJECT_TYPES
+    ):
         add(
             _METADATA_COLLECTION_OBJECT_TYPES[member_name],
             "metadata_collection_contains_object_type",
@@ -925,14 +985,22 @@ def _typed_relations_for_object(
     relations: list[dict[str, Any]] = []
     seq = 1
 
-    def add(target_name: str, link_kind: str, *, target_lookup: str = "alias", reason: str = "") -> None:
+    def add(
+        target_name: str,
+        link_kind: str,
+        *,
+        target_lookup: str = "alias",
+        reason: str = "",
+    ) -> None:
         nonlocal seq
         target = str(target_name or "").strip()
         if not target:
             return
         relations.append(
             {
-                "id": _topic_point_id(f"{topic_path}#objrel-{link_kind}-{seq}", version, language),
+                "id": _topic_point_id(
+                    f"{topic_path}#objrel-{link_kind}-{seq}", version, language
+                ),
                 "source_full_name": full_name,
                 "target_name": target,
                 "target_lookup": target_lookup,
@@ -1001,7 +1069,10 @@ def _build_structured_records(
     breadcrumb: list[str],
     hbk_label: str = "",
 ) -> tuple[
-    dict[str, Any] | None, dict[str, Any] | None, list[dict[str, Any]], list[dict[str, Any]]
+    dict[str, Any] | None,
+    dict[str, Any] | None,
+    list[dict[str, Any]],
+    list[dict[str, Any]],
 ]:
     """Build object/member/example/link records from normalized extracted sections."""
     title = title or payload_title or path
@@ -1027,7 +1098,9 @@ def _build_structured_records(
     notes = _clean_note(sections.get("note", ""))
     restrictions = _extract_restrictions(sections.get("availability", ""), notes)
     source_sections = {
-        key: _normalize_text(value) for key, value in sections.items() if _normalize_text(value)
+        key: _normalize_text(value)
+        for key, value in sections.items()
+        if _normalize_text(value)
     }
     summary_source = (
         sections.get("description")
@@ -1046,7 +1119,9 @@ def _build_structured_records(
         full_name = _normalize_api_name(title, member_kind, breadcrumb)
         owner_name, member_name = _split_full_name(full_name)
         owner_kind = (
-            _infer_object_kind(path.rsplit("/", 2)[0] if "/" in path else path, owner_name)
+            _infer_object_kind(
+                path.rsplit("/", 2)[0] if "/" in path else path, owner_name
+            )
             if owner_name
             else _infer_object_kind(path, _strip_title_suffix(title))
         )
@@ -1092,7 +1167,9 @@ def _build_structured_records(
                 version=version,
                 language=language,
                 breadcrumb=breadcrumb[:-1] if breadcrumb else [],
-                owner_kind=owner_kind if owner_kind in _STRUCTURED_OBJECT_KINDS else "type",
+                owner_kind=owner_kind
+                if owner_kind in _STRUCTURED_OBJECT_KINDS
+                else "type",
             )
         if member_kind == "property" and not member_record["returns"]:
             member_record["returns"] = _returns_from_description(
@@ -1182,7 +1259,9 @@ def _build_structured_records(
     example_section = sections.get("example", "")
     code_blocks = _extract_code_blocks(example_section)
     if code_blocks and member_record is not None:
-        description = _compact_summary(_CODE_BLOCK_RE.sub("", example_section).strip(), 300)
+        description = _compact_summary(
+            _CODE_BLOCK_RE.sub("", example_section).strip(), 300
+        )
         for idx, code in enumerate(code_blocks, 1):
             examples.append(
                 {
@@ -1215,7 +1294,9 @@ def _build_structured_records(
                     "source_full_name": source_full_name,
                     "target_name": target_name,
                     "target_lookup": "unknown",
-                    "source_lookup": "member" if member_record is not None else "object",
+                    "source_lookup": "member"
+                    if member_record is not None
+                    else "object",
                     "link_kind": "see_also",
                     "reason": "textual see_also section",
                     "topic_path": path,
@@ -1249,7 +1330,10 @@ def _build_structured_records(
 def extract_structured_records_from_topic(
     topic: dict[str, Any],
 ) -> tuple[
-    dict[str, Any] | None, dict[str, Any] | None, list[dict[str, Any]], list[dict[str, Any]]
+    dict[str, Any] | None,
+    dict[str, Any] | None,
+    list[dict[str, Any]],
+    list[dict[str, Any]],
 ]:
     """Extract structured object/member records, official examples and related links from indexed topic payload."""
     text = _normalize_text(str(topic.get("text") or ""))
@@ -1265,7 +1349,9 @@ def extract_structured_records_from_topic(
         sections=sections,
         version=str(topic.get("version") or ""),
         language=str(topic.get("language") or ""),
-        path=canonical_topic_path(str(topic.get("path") or ""), str(topic.get("version") or "")),
+        path=canonical_topic_path(
+            str(topic.get("path") or ""), str(topic.get("version") or "")
+        ),
         entity_type=str(topic.get("entity_type") or "topic").strip() or "topic",
         breadcrumb=list(topic.get("breadcrumb") or []),
     )
@@ -1282,7 +1368,10 @@ def extract_structured_records_from_html_topic(
     entity_type: str = "topic",
     hbk_label: str = "",
 ) -> tuple[
-    dict[str, Any] | None, dict[str, Any] | None, list[dict[str, Any]], list[dict[str, Any]]
+    dict[str, Any] | None,
+    dict[str, Any] | None,
+    list[dict[str, Any]],
+    list[dict[str, Any]],
 ]:
     """Extract structured records directly from unpacked HTML help article."""
     raw_html = _read_html_file(html_path)
@@ -1354,12 +1443,16 @@ def extract_api_records_from_topic(
     topic: dict[str, Any],
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     """Backward-compatible wrapper that returns member record + examples for API topics."""
-    object_record, member_record, examples, _links = extract_structured_records_from_topic(topic)
+    object_record, member_record, examples, _links = (
+        extract_structured_records_from_topic(topic)
+    )
     if member_record is not None:
         return (
             {
                 "id": member_record.get("id"),
-                "name": member_record.get("full_name") or member_record.get("member_name") or "",
+                "name": member_record.get("full_name")
+                or member_record.get("member_name")
+                or "",
                 "kind": member_record.get("kind") or "topic",
                 "title": member_record.get("title") or "",
                 "summary": member_record.get("summary") or "",
@@ -1386,7 +1479,9 @@ def extract_api_records_from_topic(
         return (
             {
                 "id": object_record.get("id"),
-                "name": object_record.get("full_name") or object_record.get("object_name") or "",
+                "name": object_record.get("full_name")
+                or object_record.get("object_name")
+                or "",
                 "kind": object_record.get("kind") or "topic",
                 "title": object_record.get("title") or "",
                 "summary": object_record.get("summary") or "",
@@ -1485,9 +1580,9 @@ def iter_help_topics_from_index(
                 "breadcrumb": payload.get("breadcrumb") or [],
             }
             prev = by_path.get(path)
-            if prev is None or _version_sort_key(str(current["version"])) > _version_sort_key(
-                str(prev["version"])
-            ):
+            if prev is None or _version_sort_key(
+                str(current["version"])
+            ) > _version_sort_key(str(prev["version"])):
                 by_path[path] = current
         if next_offset is None:
             break
@@ -1501,9 +1596,15 @@ def _write_jsonl(path: Path, items: list[dict[str, Any]]) -> None:
             fh.write(json.dumps(item, ensure_ascii=False) + "\n")
 
 
-def iter_help_topics_from_unpacked(*, unpacked_dir: Path | None = None) -> list[dict[str, Any]]:
+def iter_help_topics_from_unpacked(
+    *, unpacked_dir: Path | None = None
+) -> list[dict[str, Any]]:
     """Read unpacked HTML help articles with TOC metadata from data/unpacked."""
-    base = (unpacked_dir or Path(env_config.get_data_unpacked_dir())).expanduser().resolve()
+    base = (
+        (unpacked_dir or Path(env_config.get_data_unpacked_dir()))
+        .expanduser()
+        .resolve()
+    )
     if not base.exists():
         return []
     topics: list[dict[str, Any]] = []
@@ -1511,7 +1612,9 @@ def iter_help_topics_from_unpacked(*, unpacked_dir: Path | None = None) -> list[
         p for p in base.iterdir() if p.is_dir() and not p.name.startswith(".")
     ):
         for stem_dir in sorted(
-            p for p in version_dir.iterdir() if p.is_dir() and not p.name.startswith(".")
+            p
+            for p in version_dir.iterdir()
+            if p.is_dir() and not p.name.startswith(".")
         ):
             info_path = stem_dir / ".hbk_info.json"
             toc_path = stem_dir / ".toc.json"
@@ -1551,7 +1654,9 @@ def iter_help_topics_from_unpacked(*, unpacked_dir: Path | None = None) -> list[
                         "stem_dir": stem_dir,
                         "path": full_path,
                         "title": str(
-                            toc_item.get("title_ru") or toc_item.get("title_en") or html_path.stem
+                            toc_item.get("title_ru")
+                            or toc_item.get("title_en")
+                            or html_path.stem
                         ),
                         "version": version,
                         "language": language,
@@ -1634,7 +1739,9 @@ def build_structured_api_snapshot(
     html_topics = iter_help_topics_from_unpacked(unpacked_dir=unpacked_dir)
     if not html_topics:
         source_base = (
-            (unpacked_dir or Path(env_config.get_data_unpacked_dir())).expanduser().resolve()
+            (unpacked_dir or Path(env_config.get_data_unpacked_dir()))
+            .expanduser()
+            .resolve()
         )
         raise RuntimeError(
             f"No unpacked HTML help topics found in {source_base}. "
@@ -1651,7 +1758,9 @@ def build_structured_api_snapshot(
     names_by_topic_path: dict[str, str] = {}
 
     for topic in html_topics:
-        canon = canonical_topic_path(str(topic.get("path") or ""), str(topic.get("version") or ""))
+        canon = canonical_topic_path(
+            str(topic.get("path") or ""), str(topic.get("version") or "")
+        )
         object_record, member_record, topic_examples, topic_links = (
             extract_structured_records_from_html_topic(
                 Path(topic["html_path"]),
@@ -1668,7 +1777,9 @@ def build_structured_api_snapshot(
             topic_path = str(object_record.get("topic_path") or "")
             if topic_path:
                 names_by_topic_path[topic_path] = str(
-                    object_record.get("full_name") or object_record.get("object_name") or ""
+                    object_record.get("full_name")
+                    or object_record.get("object_name")
+                    or ""
                 )
             if topic_path:
                 key = (
@@ -1680,17 +1791,25 @@ def build_structured_api_snapshot(
                 key = (
                     str(object_record.get("version") or ""),
                     str(object_record.get("language") or ""),
-                    str(object_record.get("full_name") or object_record.get("object_name") or ""),
+                    str(
+                        object_record.get("full_name")
+                        or object_record.get("object_name")
+                        or ""
+                    ),
                     "stub",
                 )
             prev = objects_by_key.get(key)
-            if prev is None or (not prev.get("topic_path") and object_record.get("topic_path")):
+            if prev is None or (
+                not prev.get("topic_path") and object_record.get("topic_path")
+            ):
                 objects_by_key[key] = object_record
         if member_record is not None:
             members_raw.append(member_record)
             member_topic_path = str(member_record.get("topic_path") or "")
             if member_topic_path:
-                names_by_topic_path[member_topic_path] = str(member_record.get("full_name") or "")
+                names_by_topic_path[member_topic_path] = str(
+                    member_record.get("full_name") or ""
+                )
         examples_raw.extend(topic_examples)
         links_raw.extend(topic_links)
 
@@ -1710,11 +1829,19 @@ def build_structured_api_snapshot(
                     continue
                 html_links_raw.append(
                     {
-                        "id": _topic_point_id(f"{canon}#html-link-{idx}", str(topic.get("version") or ""), str(topic.get("language") or "")),
+                        "id": _topic_point_id(
+                            f"{canon}#html-link-{idx}",
+                            str(topic.get("version") or ""),
+                            str(topic.get("language") or ""),
+                        ),
                         "source_full_name": source_name,
-                        "target_name": str(link.get("target_title") or link.get("link_text") or "").strip(),
+                        "target_name": str(
+                            link.get("target_title") or link.get("link_text") or ""
+                        ).strip(),
                         "target_lookup": "topic_path",
-                        "source_lookup": "member" if member_record is not None else "object",
+                        "source_lookup": "member"
+                        if member_record is not None
+                        else "object",
                         "resolved_target_topic_path": f"{stem_dir.name}/{resolved_path}",
                         "href": str(link.get("href") or "").strip(),
                         "link_kind": "html_href",
@@ -1750,9 +1877,12 @@ def build_structured_api_snapshot(
         resolved_target = str(link.get("resolved_target_topic_path") or "").strip()
         if resolved_target and names_by_topic_path.get(resolved_target):
             link["target_name"] = names_by_topic_path[resolved_target]
-            link["target_lookup"] = "topic" if resolved_target in {
-                str(item.get("topic_path") or "") for item in topics_raw
-            } else "structured_topic"
+            link["target_lookup"] = (
+                "topic"
+                if resolved_target
+                in {str(item.get("topic_path") or "") for item in topics_raw}
+                else "structured_topic"
+            )
 
     object_items = _merge_snapshot_records(objects_raw, id_suffix="obj")
     members = _merge_snapshot_records(members_raw, id_suffix="mem")
@@ -1776,7 +1906,9 @@ def build_structured_api_snapshot(
         "source": "unpacked_html",
         "source_collection": "",
         "source_unpacked_dir": str(
-            (unpacked_dir or Path(env_config.get_data_unpacked_dir())).expanduser().resolve()
+            (unpacked_dir or Path(env_config.get_data_unpacked_dir()))
+            .expanduser()
+            .resolve()
         ),
     }
     (out_dir / "manifest.json").write_text(
@@ -1799,7 +1931,9 @@ def index_structured_help_snapshot(
     """Index the structured help snapshot into dedicated Qdrant collections."""
     from ..search_store.indexer import add_bm25_to_collection
 
-    snapshot_base = (snapshot_dir or Path(get_help_structured_dir())).expanduser().resolve()
+    snapshot_base = (
+        (snapshot_dir or Path(get_help_structured_dir())).expanduser().resolve()
+    )
     total_expected = sum(
         len(loader(snapshot_base))
         for loader in (
@@ -1861,8 +1995,8 @@ def index_structured_help_snapshot(
                 collection=col,
                 recreate=recreate,
                 batch_size=batch_size,
-                progress_callback=lambda loaded, total, _col=col: _on_collection_progress(
-                    _col, loaded, total
+                progress_callback=lambda loaded, total, _col=col: (
+                    _on_collection_progress(_col, loaded, total)
                 ),
             ): col
             for col, fn in _collection_tasks
@@ -1878,7 +2012,9 @@ def index_structured_help_snapshot(
 
     if errors:
         msgs = "; ".join(f"{c}: {e}" for c, e in errors)
-        raise RuntimeError(f"[index_structured] {len(errors)} collection(s) failed: {msgs}")
+        raise RuntimeError(
+            f"[index_structured] {len(errors)} collection(s) failed: {msgs}"
+        )
 
     objects_inserted = inserted_by_collection[API_OBJECTS_COLLECTION_NAME]
     members_inserted = inserted_by_collection[API_MEMBERS_COLLECTION_NAME]
@@ -1974,7 +2110,9 @@ def _record_embedding_text(item: dict[str, Any], *, kind: str) -> str:
     return "\n".join(part for part in parts if part).strip()
 
 
-def _upsert_with_retry(client_factory, collection: str, points, *, max_attempts: int = 4) -> None:
+def _upsert_with_retry(
+    client_factory, collection: str, points, *, max_attempts: int = 4
+) -> None:
     """Upsert points into Qdrant with retry on transient connection errors.
 
     ``client_factory`` is a zero-argument callable that returns a fresh
@@ -2034,7 +2172,12 @@ def _index_records(
     indexed_fields: tuple[str, ...] = (),
 ) -> int:
     from qdrant_client import QdrantClient
-    from qdrant_client.models import Distance, PayloadSchemaType, PointStruct, VectorParams
+    from qdrant_client.models import (
+        Distance,
+        PayloadSchemaType,
+        PointStruct,
+        VectorParams,
+    )
 
     if not items:
         return 0
@@ -2295,7 +2438,13 @@ def index_structured_api_examples(
             ),
         },
         use_dense=True,
-        indexed_fields=("owner_name", "member_name", "full_name", "api_name", "language"),
+        indexed_fields=(
+            "owner_name",
+            "member_name",
+            "full_name",
+            "api_name",
+            "language",
+        ),
     )
 
 
@@ -2326,7 +2475,8 @@ def index_structured_api_links(
         key = f"workflow|{source_name}|{target_name}"
         items.append(
             {
-                "id": int(hashlib.sha256(key.encode("utf-8")).hexdigest()[:14], 16) % (2**63),
+                "id": int(hashlib.sha256(key.encode("utf-8")).hexdigest()[:14], 16)
+                % (2**63),
                 "source_full_name": source_name,
                 "target_name": target_name,
                 "link_kind": "workflow_next_step",
@@ -2440,7 +2590,11 @@ def _score_text_match(query: str, item: dict[str, Any], fields: list[str]) -> in
     q = (query or "").strip().lower()
     if not q:
         return 0
-    tokens = [token.lower() for token in re.findall(r"[А-Яа-яA-Za-z0-9_.-]+", q) if len(token) >= 2]
+    tokens = [
+        token.lower()
+        for token in re.findall(r"[А-Яа-яA-Za-z0-9_.-]+", q)
+        if len(token) >= 2
+    ]
     haystack_parts = [str(item.get(field) or "") for field in fields]
     haystack = " ".join(haystack_parts).lower()
     primary = str(item.get(fields[0]) or "").lower() if fields else ""
@@ -2524,7 +2678,9 @@ def search_official_examples(
             continue
         if language and str(item.get("language") or "") != language:
             continue
-        score = _score_text_match(query, item, ["full_name", "title", "description", "code"])
+        score = _score_text_match(
+            query, item, ["full_name", "title", "description", "code"]
+        )
         if score > 0:
             scored.append((score, item))
     scored.sort(
@@ -2639,7 +2795,9 @@ def _member_exact_sort_key(
         for a in (item.get("surface_aliases") or [])
         if isinstance(a, str) and str(a).strip()
     ]
-    owner_priority = 0 if owner_name in {"глобальный контекст", "встроенные функции языка"} else 1
+    owner_priority = (
+        0 if owner_name in {"глобальный контекст", "встроенные функции языка"} else 1
+    )
     if full_name == query_clean:
         priority = 0
     elif member_name == query_clean:
@@ -2660,9 +2818,13 @@ def _member_exact_sort_key(
     )
 
 
-def _object_exact_sort_key(query: str, item: dict[str, Any]) -> tuple[int, tuple[int, ...], str]:
+def _object_exact_sort_key(
+    query: str, item: dict[str, Any]
+) -> tuple[int, tuple[int, ...], str]:
     query_clean = (query or "").strip().lower()
-    full_name = str(item.get("full_name") or item.get("object_name") or "").strip().lower()
+    full_name = (
+        str(item.get("full_name") or item.get("object_name") or "").strip().lower()
+    )
     object_name = str(item.get("object_name") or "").strip().lower()
     aliases_lower = [
         str(a).strip().lower()
@@ -2746,7 +2908,13 @@ def get_api_member(
             return []
         results: list[dict[str, Any]] = []
         try:
-            for field in ("name", "full_name", "member_name", "aliases", "surface_aliases"):
+            for field in (
+                "name",
+                "full_name",
+                "member_name",
+                "aliases",
+                "surface_aliases",
+            ):
                 results.extend(
                     _scroll_exact_member_matches(
                         client,
@@ -2767,7 +2935,10 @@ def get_api_member(
                     str(item.get("topic_path") or ""),
                 )
                 dedup[key] = item
-            return sorted(dedup.values(), key=lambda item: _member_exact_sort_key(name_clean, item))
+            return sorted(
+                dedup.values(),
+                key=lambda item: _member_exact_sort_key(name_clean, item),
+            )
         return []
     except Exception as exc:
         if is_qdrant_unreachable_error(exc):
@@ -2802,7 +2973,13 @@ def get_api_object(
             return []
         results: list[dict[str, Any]] = []
         try:
-            for field in ("name", "full_name", "object_name", "aliases", "surface_aliases"):
+            for field in (
+                "name",
+                "full_name",
+                "object_name",
+                "aliases",
+                "surface_aliases",
+            ):
                 results.extend(
                     _scroll_exact_object_matches(
                         client,
@@ -2856,9 +3033,13 @@ def get_api_related(
         )
         if not client.collection_exists(API_LINKS_COLLECTION_NAME):
             return []
-        must = [FieldCondition(key="source_full_name", match=MatchValue(value=name_clean))]
+        must = [
+            FieldCondition(key="source_full_name", match=MatchValue(value=name_clean))
+        ]
         if language:
-            must.append(FieldCondition(key="language", match=MatchValue(value=language)))
+            must.append(
+                FieldCondition(key="language", match=MatchValue(value=language))
+            )
         points, _ = client.scroll(
             collection_name=API_LINKS_COLLECTION_NAME,
             scroll_filter=Filter(must=must),
@@ -2868,8 +3049,15 @@ def get_api_related(
         )
         out = [dict(getattr(point, "payload", None) or {}) for point in points or []]
         if version:
-            out = [item for item in out if payload_matches_platform_version(item, version)]
-        out.sort(key=lambda item: (str(item.get("link_kind") or ""), str(item.get("target_name") or "")))
+            out = [
+                item for item in out if payload_matches_platform_version(item, version)
+            ]
+        out.sort(
+            key=lambda item: (
+                str(item.get("link_kind") or ""),
+                str(item.get("target_name") or ""),
+            )
+        )
         return out
     except Exception as exc:
         if is_qdrant_unreachable_error(exc):

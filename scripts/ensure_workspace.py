@@ -16,7 +16,10 @@ SRC_DIR = REPO_ROOT / "src"
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
-from onec_help.workspace_manifest import init_args_from_manifest, load_workspace_manifest  # noqa: E402
+from onec_help.workspace_manifest import (  # noqa: E402
+    init_args_from_manifest,
+    load_workspace_manifest,
+)  # noqa: E402
 
 
 PROFILE_ORDER = {
@@ -40,7 +43,12 @@ def _run(cmd: list[str]) -> None:
 
 
 def _run_capture_ok(cmd: list[str]) -> bool:
-    return subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0
+    return (
+        subprocess.run(
+            cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+        ).returncode
+        == 0
+    )
 
 
 def _is_absolute_path_like(value: str) -> bool:
@@ -74,10 +82,14 @@ def _desired_profile(current_profile: str, needs: list[str]) -> str:
 
 
 def _manifest_exists(workspace_root: Path) -> bool:
-    return (workspace_root.expanduser().resolve() / ".onec" / "workspace.manifest.json").is_file()
+    return (
+        workspace_root.expanduser().resolve() / ".onec" / "workspace.manifest.json"
+    ).is_file()
 
 
-def _manifest_satisfies_needs(manifest: dict[str, object], workspace_root: Path, needs: list[str]) -> bool:
+def _manifest_satisfies_needs(
+    manifest: dict[str, object], workspace_root: Path, needs: list[str]
+) -> bool:
     packs = manifest.get("packs") or {}
     if not isinstance(packs, dict):
         packs = {}
@@ -90,12 +102,18 @@ def _manifest_satisfies_needs(manifest: dict[str, object], workspace_root: Path,
             path_value = packs.get("platform")
             if need == "standards":
                 path_value = packs.get("standards")
-            if not isinstance(path_value, str) or not Path(path_value).expanduser().resolve().is_file():
+            if (
+                not isinstance(path_value, str)
+                or not Path(path_value).expanduser().resolve().is_file()
+            ):
                 return False
             continue
         if not targets:
             path_value = packs.get(need)
-            if not isinstance(path_value, str) or not Path(path_value).expanduser().resolve().is_file():
+            if (
+                not isinstance(path_value, str)
+                or not Path(path_value).expanduser().resolve().is_file()
+            ):
                 return False
             continue
         for payload in targets.values():
@@ -103,15 +121,25 @@ def _manifest_satisfies_needs(manifest: dict[str, object], workspace_root: Path,
             if not isinstance(target_packs, dict):
                 return False
             path_value = target_packs.get(need)
-            if not isinstance(path_value, str) or not Path(path_value).expanduser().resolve().is_file():
+            if (
+                not isinstance(path_value, str)
+                or not Path(path_value).expanduser().resolve().is_file()
+            ):
                 return False
     return True
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Ensure a workspace has the requested context layers")
+    parser = argparse.ArgumentParser(
+        description="Ensure a workspace has the requested context layers"
+    )
     parser.add_argument("--workspace-root", default=".")
-    parser.add_argument("--need", action="append", choices=["platform", "standards", "metadata", "code", "full"], required=True)
+    parser.add_argument(
+        "--need",
+        action="append",
+        choices=["platform", "standards", "metadata", "code", "full"],
+        required=True,
+    )
     parser.add_argument("--source-path", default=None)
     parser.add_argument("--source-kind", default="auto")
     parser.add_argument("--metadata-source", default=None)
@@ -130,7 +158,9 @@ def main() -> int:
         init_args = init_args_from_manifest(manifest)
         current_profile = str(manifest.get("profile") or "base")
         desired_profile = _desired_profile(current_profile, needs)
-        source_path = str(init_args.get("source_path") or workspace_root)
+        source_path = str(
+            args.source_path or init_args.get("source_path") or workspace_root
+        )
         source_kind = str(init_args.get("source_kind") or "auto")
         metadata_source = args.metadata_source or init_args.get("metadata_source")
         hbk_base = args.hbk_base or init_args.get("hbk_base")
@@ -146,16 +176,41 @@ def main() -> int:
                 "--strict",
             ]
         )
-        if status_ok and _manifest_satisfies_needs(manifest, workspace_root, needs):
+        explicit_change = any(
+            (
+                args.platform
+                and sorted(args.platform) != sorted(init_args.get("platforms") or []),
+                args.source_path
+                and Path(args.source_path).resolve()
+                != Path(str(init_args.get("source_path") or workspace_root)).resolve(),
+                args.hbk_base
+                and Path(args.hbk_base).resolve()
+                != Path(str(init_args.get("hbk_base") or ".")).resolve(),
+                args.standards_dir
+                and args.standards_dir != init_args.get("standards_dir"),
+                args.metadata_source
+                and args.metadata_source != init_args.get("metadata_source"),
+                args.base_config
+                and sorted(args.base_config)
+                != sorted(init_args.get("base_configs") or []),
+            )
+        )
+        if (
+            not explicit_change
+            and status_ok
+            and _manifest_satisfies_needs(manifest, workspace_root, needs)
+        ):
             print(
                 json.dumps(
-                    _public_payload({
-                        "workspace_root": str(workspace_root),
-                        "needs": needs,
-                        "profile": current_profile,
-                        "source_path": source_path,
-                        "changed": False,
-                    }),
+                    _public_payload(
+                        {
+                            "workspace_root": str(workspace_root),
+                            "needs": needs,
+                            "profile": current_profile,
+                            "source_path": source_path,
+                            "changed": False,
+                        }
+                    ),
                     ensure_ascii=False,
                     indent=2,
                 )
@@ -187,11 +242,17 @@ def main() -> int:
         cmd.extend(["--metadata-source", str(metadata_source)])
     if hbk_base:
         cmd.extend(["--hbk-base", str(hbk_base)])
-    if "standards" in needs:
+    keep_standards = manifest_exists and bool(
+        (manifest.get("packs") or {}).get("standards")
+    )
+    keep_platform = manifest_exists and bool(
+        (manifest.get("packs") or {}).get("platform")
+    )
+    if "standards" in needs or keep_standards:
         cmd.append("--with-standards")
         if standards_dir:
             cmd.extend(["--standards-dir", str(standards_dir)])
-        if "platform" not in needs and desired_profile == "base":
+        if "platform" not in needs and not keep_platform and desired_profile == "base":
             cmd.append("--without-help")
     for version in platforms:
         cmd.extend(["--platform", str(version)])

@@ -1,68 +1,82 @@
 ---
 name: onec-context
-description: Use this skill when working with 1C source trees and you need a local source-first context made from ConfigDump, optional metadata XML export, and mandatory HBK platform help.
+description: Develop and review 1C code using local platform help, development standards, configuration metadata and source code. Includes executable tools and can build missing knowledge packs from an explicitly selected local source.
 ---
 
 # Onec Context
 
-This skill is self-contained.
+Use the tools in this skill for source-backed 1C facts. Resolve script paths from
+this skill directory, even when working in another repository. The tools run
+locally; no Docker, embedding service or API key is required for lookup.
 
-Primary entrypoint:
+## Start with the question
 
-- `scripts/onec_context.py`
-- Unix convenience wrapper: `bin/onec-context`
+For platform API or language questions, check whether `artifacts/platform.kb.db.zst`
+is included in this skill. If present, query it immediately:
 
-If the local `.venv` is missing, `scripts/onec_context.py` bootstraps it automatically on first real command.
-Resolve all relative paths in this document from the skill root.
-
-## When to use
-
-- 1C configuration repositories
-- 1C extensions
-- external processing/report source trees after export to files
-- multi-workspace 1C development where each repo needs its own local context packs
-
-## Required loop
-
-0. If the workspace is not initialized yet, first determine the HBK root:
-   - use the existing workspace manifest only when `optional_sources.hbk_base` is present and the directory still exists
-   - otherwise use `ONEC_HBK_BASE` or `/opt/1cv8` when available
-   - `HBK_ROOT` may point to the platform root, an exact version directory, or that version's `bin/` directory
-   - if no HBK root is discoverable, ask the user once before running `init --profile base`
-1. Check the workspace first:
-   - `python scripts/onec_context.py status --workspace-root <repo> --strict`
-2. If `.onec/workspace.manifest.json` is missing or stale, initialize or rebuild the workspace:
-   - `python scripts/onec_context.py init --workspace-root <repo> --source-path <repo-or-config-root> --profile base --hbk-base <HBK_ROOT>`
-   - add `--platform <VERSION>` when the platform version is known and version-exact help lookup matters
-3. Use `python scripts/onec_context.py resolve-packs --workspace-root <repo>` to get exact pack paths; do not hardcode pack filenames.
-4. The base workspace should always have `packs.platform`.
-5. If metadata is missing and the question needs requisites, types, tabular sections, or form metadata, run `python scripts/onec_context.py ensure --workspace-root <repo> --need metadata`.
-6. Prefer `packs.platform` for platform language and API knowledge.
-7. If code analysis is required and `code.pack` is absent, run `python scripts/onec_context.py ensure --workspace-root <repo> --need code`.
-8. Use `targets.<source-identity>.packs.full` only when exact file bytes or full source reads are required; build it with `python scripts/onec_context.py ensure --workspace-root <repo> --need full`.
-9. If multiple targets exist, choose the right target by config name/version before querying. If that is unclear from the repo, ask the user once and then keep using that target consistently.
-
-## Practical commands
-
-```bash
-python scripts/onec_context.py doctor --workspace-init --hbk-base /opt/1cv8
-python scripts/onec_context.py status --workspace-root . --strict
-python scripts/onec_context.py init --workspace-root . --source-path . --profile base --hbk-base /opt/1cv8
-python scripts/onec_context.py ensure --workspace-root . --need metadata
-python scripts/onec_context.py resolve-packs --workspace-root . --role platform --path-only
-# Use ensure --need code only when logic-level analysis is required
+```sh
+python3 scripts/onec_context.py query-kb --q "Структура.Вставить" --exact --json
 ```
 
-## Notes
+Pass `--version` for the project's platform version. A bundled version is not
+proof of availability on another version. If multiple definitions match, keep
+their versions separate. `--detail full` returns the preserved source record,
+as extracted by the builder. Separate examples require `--domain api_examples`.
+Compact results preserve
+parameters, returns, availability and restrictions; summaries can be shortened.
 
-- ConfigDump is the primary metadata source.
-- metadata XML export is optional fallback or verification input, not the main path.
-- A workspace may have multiple config roots; select the right target under `.onec/workspace.manifest.json -> targets`.
-- Extensions may declare multiple possible base configurations; keep them in `.onec/workspace.manifest.json`.
-- If platform version or source configuration version changes, rerun `status`; it should drive a rebuild of stale packs.
-- The default profile is `base`, which means `help only`. `metadata`, `code.pack`, and `full` are opt-in layers.
-- Platform CLI and headless/admin knowledge is split into the supplemental skill `onec-platform-cli`.
-- Query-routing discipline is split into the supplemental skill `onec-query-strategy`.
-- Behavior tracing for objects, requisites, and forms is split into the supplemental skill `onec-explain-object`.
-- Platform API and syntax verification is split into the supplemental skill `onec-platform-fact-check`.
-- Development standards and coding-convention guidance is split into the supplemental skill `onec-dev-standards`.
+If the skill has no suitable pack, use the workspace's pack:
+
+```sh
+python3 scripts/onec_context.py query-kb --workspace-root /path/to/project --q "Структура.Вставить" --exact --json
+```
+
+If preparation is needed, determine the HBK root from the user's instruction,
+workspace manifest or `ONEC_HBK_BASE`. Ask once if none is known. Determine the
+target platform version from the project or user; do not silently choose the
+newest installed version. Build or reuse the required layer in one call:
+
+```sh
+python3 scripts/onec_context.py ensure --workspace-root /path/to/project --need platform --hbk-base /path/to/platform --platform 8.5.1.1343
+```
+
+The first real command provisions the skill's Python environment if needed.
+First installation may need package downloads. Repeated calls reuse the runtime.
+`ensure` checks the source and reuses unchanged platform packs. Do not run `init`
+on every question. HBK extraction is temporary; the resulting pack is persistent.
+
+## Route only the necessary knowledge
+
+- Exact platform identifier: `query-kb --exact`; keep names such as `Тип.Метод` intact.
+- Questions can contain a full `Тип.Метод` identifier; the reader extracts it before searching.
+- Lexical full-text search: `query-kb --q ... --limit 5 --json`; read full records only for relevant hits.
+- Standards: `ensure --need standards --standards-dir /path/to/its-v8std`, then `query-kb --workspace-root /path/to/project --role standards --q ... --json`. Standards are a separate source, not automatically present in HBK.
+- Configuration facts: `ensure --need metadata --source-path /path/to/ConfigDump`, then `query-kb --workspace-root /path/to/project --role metadata --q ... --json`. Select `--target` when several configurations exist.
+- Logic and callers: `ensure --need code`, then resolve the code pack with `resolve-packs --role code --target ... --path-only` and use `query-code`.
+- Exact XML/file contents: `ensure --need full`, resolve its path, then use `query-config`.
+
+Use `--help` on a command for arguments. Do not build code/full packs for an API question.
+For optional MCP access the same tools are available through `scripts/mcp_server.py`.
+
+## Answer and verify
+
+Give the useful answer first. Cite the matched topic and relevant version when
+making a platform claim. Distinguish source facts from deductions about project
+code. Lexical search uses significant words and prefixes; inspect candidates rather than treating any hit as an answer. No match means unconfirmed, not proof that an API does not exist. A compact
+summary is not the full source. Use `--detail full` when the saved record is needed; it is not original HTML.
+After code changes, use the project's BSL diagnostics and tests when available.
+Neither a search hit nor an example proves that generated code works.
+
+## References, loaded only when needed
+
+- Search across layers: [query strategy](references/query-strategy.md).
+- Explain configuration behavior: [object explanation](references/explain-object.md).
+- Check platform claims: [fact checking](references/platform-fact-check.md).
+- Development conventions: [standards](references/dev-standards.md).
+- Platform commands and headless operation: [platform CLI](references/platform-cli.md).
+
+Project OACS memory, when already configured, may supply decisions and previous
+verification. Check current sources before reusing version-sensitive claims.
+OACS is not required to install this skill or query its packs. No automatic OACS
+adapter is implemented in the toolkit. After configuration source edits, use
+`init` with the required profile: status does not hash every BSL/XML file.

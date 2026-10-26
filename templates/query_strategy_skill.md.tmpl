@@ -1,42 +1,43 @@
 ---
 name: onec-query-strategy
-description: Use this supplemental skill to choose the cheapest and most reliable lookup route across platform help, metadata, code, and full packs.
+description: Choose a local knowledge layer for a 1C question.
 ---
 
 # Onec Query Strategy
 
-This is a supplemental skill. Use it when the task is to answer a 1C development question with the local toolkit while keeping the route fast, exact, and explainable.
+This is optional guidance for the main onec-context skill. Load
+[the reference](reference.md) when this topic is relevant. Executable tools live
+in the main skill or an exported bundle, not in this supplemental directory.
+Resolve their actual location before running a command. Do not assume that
+`onec-context` is installed on PATH.
 
-## Core route
+Choose the layer that can prove the claim:
 
-1. Start with `onec-context status` and `resolve-packs`; do not guess pack paths.
-2. Prefer the cheapest exact source that can answer the question.
-3. Escalate only when the current layer cannot answer the question.
-4. If multiple targets exist, choose the target first and keep using it consistently.
+| Question | Role | Reader |
+| --- | --- | --- |
+| Platform syntax or built-in API | `platform` | `local_kb_query.py` |
+| ITS development convention | `standards` | `local_kb_query.py` |
+| Object, field, type, form or command | `metadata` | `local_kb_query.py` |
+| Module, declaration or call relationship | `code` | `query_code_pack.py` |
+| Exact source file contents | `full` | `query_config_pack.py` |
 
-## Layer order
+The installed toolkit provides `scripts/onec_context.py resolve-packs
+--workspace-root /path/to/project`. An exported read-only bundle instead provides
+`tools/resolve_packs.py --bundle-dir /path/to/bundle`. Resolve script paths from
+the toolkit or bundle root, not from the project being examined. Both readers
+accept `--role`, `--target` and `--path-only`. Inspect available targets first.
+Do not assume pack filenames or select the first configuration implicitly.
 
-- `packs.platform`
-  - platform language, syntax, built-in API, standard object methods, preprocessor, module kinds
-- `packs.metadata`
-  - configuration objects, requisites, tabular sections, form requisites, form commands, types
-- `packs.code`
-  - procedures, functions, modules, callers, callees, logic-level influence
-- `packs.full`
-  - exact file bytes, raw XML/forms/modules, final confirmation when higher layers are insufficient
+For platform, metadata and standards, use `tools/local_kb_query.py --db
+/path/to/resolved-pack --q "name" --exact --json`. Drop `--exact` for lexical
+FTS5 search. Use `--version` for a platform claim and `--detail full` for a
+preserved record. Separate examples use `--domain api_examples`.
 
-## Escalation rules
+The installed toolkit can prepare missing layers using `ensure`. The exported
+bundle cannot build them: report what is missing and request preparation with
+the toolkit. Do not run a rebuild before every lookup. After configuration source
+edits, explicitly rebuild the affected profile; status does not hash every file.
 
-- If the question is about platform facts, method signatures, or language syntax, start with `platform`.
-- If the question is about object structure, requisites, types, tabular sections, or forms, start with `metadata`.
-- If the question is about behavior, influence, handlers, or call chains, use `metadata` first to locate the object and then add `code` only if needed.
-- Use `full` only when you need exact file content, raw XML, or source text that is not represented well enough in `metadata` or `code`.
-
-## Output rules
-
-- Prefer exact answers over broad summaries.
-- Name which layer produced the answer.
-- If the answer depends on a specific target, say which target was used.
-- If a layer did not confirm the claim, say so and escalate or stop instead of guessing.
-
-See also `reference.md` in this skill folder for the condensed decision table.
+A full record is the extractor's saved record, not the original HTML or a
+cross-layer answer. No match means unconfirmed in this pack. Keep source facts,
+code deductions and unresolved assumptions distinguishable.

@@ -1,51 +1,28 @@
-# 1C Platform CLI Reference
+# Onec Platform CLI
 
-Use this reference when the question is about platform CLI or headless 1C workflows.
+Platform command-line operations are separate from reading help packs. A local
+SQLite query needs no running 1C process. Compilation, configuration loading
+and administration require the relevant installed platform tools and access.
 
-## Quick map
+Choose the tool family by the task:
 
-| Need | Preferred route |
-|---|---|
-| Create a new infobase | `1cv8 CREATEINFOBASE` |
-| Run Designer batch commands | `1cv8 CONFIG` |
-| Administer a 1C cluster | `ragent` + `ras` + `rac` |
-| Administer standalone server or infobase | `ibsrv` + `ibcmd` |
-| Build with temporary file infobase | `CREATEINFOBASE` -> `CONFIG /F ...` |
+- `1cv8` / Designer: operations on configurations and external reports or data processors.
+- `CREATEINFOBASE`: creation of an information base through the platform launcher.
+- `ibcmd` and `ibsrv`: tools available in supported platform versions for their documented tasks.
+- `ragent`, `ras`, `rac`: cluster services and administration where applicable.
 
-## Do not mix these up
+Check the installed version's help before forming a command. Do not assume that
+switches, transport syntax, return codes or licensing behavior are identical
+across versions and tools. Inspect generated logs and output artifacts as well
+as the process exit status.
 
-- `ragent` is cluster infrastructure.
-- `ras` / `rac` are cluster administration tools.
-- `ibsrv` is standalone server.
-- `ibcmd` manages standalone server and infobases.
-- SSH to standalone server is not a regular shell and not direct database access.
+The main toolkit includes `tools/1c/build_external_data_processor.sh` and
+`tools/1c/unpack_external_data_processor.sh`. They are shell adapters around an
+installed `1cv8`, not a bundled platform. Read their adjacent README for required
+environment variables and cleanup behavior. Resolve paths from the main toolkit
+or exported bundle; a supplemental guidance skill has no executable tools.
 
-## Distilled rules
-
-1. Match the answer to the exact platform version.
-2. Many batch configurator scenarios need a real infobase context.
-3. Temporary lightweight file infobases are often the safest automation path.
-4. Parallel CI usually means several independent infobases, not many workers in one infobase.
-5. For classic `1cv8` scripts, use `/Out` and `/DumpResult`.
-
-## Typical guidance
-
-- `CREATEINFOBASE`: best for creating a temporary file infobase for package operations.
-- `CONFIG`: best for classic batch configurator flows and Designer-driven imports/exports.
-- `ibcmd --remote ssh://...`: best for standalone server remote management.
-- `ibcmd` offline or `--data`: useful when the data directory is not already locked by another `ibsrv`.
-- `rac` / `ras`: only for cluster questions.
-
-## CI notes
-
-- For GUI-dependent Linux steps, plan for `Xvfb + DISPLAY`.
-- Avoid using a heavy or sensitive production infobase as a temporary build context.
-- Prefer isolated temp infobases and explicit cleanup.
-
-## Official sources to verify against
-
-- Administrator Guide for the exact platform version
-- startup command-line appendix
-- standalone server (`ibsrv`) and `ibcmd`
-- cluster administration software documentation
-- corresponding ITS branch for the same platform line
+Before a command that changes an information base, establish the intended target
+and the user's authorized scope. Use a disposable base when appropriate, but do
+not silently create or modify a production base. Never expose credentials in
+shared commands or logs. Do not infer success solely from the presence of a log.

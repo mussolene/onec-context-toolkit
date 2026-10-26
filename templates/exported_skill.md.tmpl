@@ -1,0 +1,56 @@
+---
+name: onec-context-bundle
+description: Read prepared local 1C help, standards, metadata, code and source file packs without a server. This exported bundle does not build or refresh data.
+---
+
+# Onec Context Bundle
+
+Run the tools from this bundle's directory. Python 3.11+ and Zstandard support
+must already be available; this bundle does not bootstrap an environment.
+Read [README](README.md) for runtime requirements.
+
+## Resolve and query
+
+```sh
+python3 tools/resolve_packs.py --bundle-dir .
+```
+
+Choose the configuration and version before a target-bound lookup. Resolve a
+role with `--role` and, when needed, `--target`; `--path-only` returns the path
+for a reader's `--db` argument. Never guess filenames.
+
+| Role | Reader | Purpose |
+| --- | --- | --- |
+| `platform` | `tools/local_kb_query.py` | Versioned platform API |
+| `standards` | `tools/local_kb_query.py` | ITS development conventions |
+| `metadata` | `tools/local_kb_query.py` | Objects, fields, types and forms |
+| `code` | `tools/query_code_pack.py` | Modules, symbols and call relationships |
+| `full` | `tools/query_config_pack.py` | Exact source files |
+
+For knowledge packs, use `--q`, `--exact`, `--json` and the required `--version`.
+Without `--exact`, search uses exact matches first and then lexical FTS5.
+`--detail full` returns the preserved extracted record. Separate examples use
+`--domain api_examples`. Neither mode guarantees complete original HTML coverage.
+Use the reader's `--help` before unfamiliar operations.
+
+## Interpret evidence
+
+Cite relevant topics, versions and source paths. Separate facts from deductions.
+A code index is not a runtime execution trace. No result means unconfirmed in the
+selected pack. Run the project's diagnostics and tests after changes to code.
+
+The map stores common roles in `packs.platform` and `packs.standards`; project
+roles are in `targets.*.packs.metadata`, `code` and `full`. Layers can be absent.
+This bundle has no `scripts/onec_context.py`, `ensure` or build tools. If data is
+missing or stale, report the gap and prepare a new export with the toolkit.
+
+## References
+
+- [Query strategy](references/query-strategy.md)
+- [Object explanation](references/explain-object.md)
+- [Platform fact checking](references/platform-fact-check.md)
+- [Development standards](references/dev-standards.md)
+- [Platform CLI](docs/1c-platform-cli.md)
+
+`python3 tools/verify_local_kb.py --artifacts-dir ./artifacts` runs limited smoke
+checks. It does not prove source completeness or correct execution of 1C code.

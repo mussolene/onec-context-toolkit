@@ -1,10 +1,11 @@
 ---
-description: Explain how a 1C object, flag, requisite, form field, or command affects behavior
+description: Explain 1C configuration behavior from metadata and code evidence.
 globs:
 alwaysApply: false
 ---
 
-- Start from metadata to identify the object, its requisites, tabular sections, forms, form fields, and commands.
-- Add `code` only when the question is about handlers, readers, writers, callers, or business logic.
-- Distinguish UI, print, exchange, and status side effects from actual write or posting behavior.
-- Use `full` only when raw source or XML is needed to complete the trace.
+Read `{skill_rel_root}/references/explain-object.md` when relevant.
+Use the main skill's tools at `{skill_rel_root}/scripts/onec_context.py`.
+Choose the required source, version and configuration before querying.
+Use existing packs first; prepare missing layers with `ensure` only when needed.
+Separate retrieved facts, deductions and unresolved assumptions.

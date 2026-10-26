@@ -1,157 +1,83 @@
-# Canonical Proof Surface
+# Проверка toolkit
 
-Этот файл задаёт repeatable developer-facing сценарии, по которым удобно проверять `onec-context-toolkit`.
-Цель не в том, чтобы покрыть все вопросы по 1С, а в том, чтобы показать ожидаемый route по слоям и дисциплину ответа агента.
+Это воспроизводимые сценарии приёмки, а не отчёт о производительности на любой
+платформе. Команды запускаются из корня toolkit. Замените пути и версию своими.
+Исходные HBK и конфигурации не входят в репозиторий.
 
-## Как пользоваться
+## 1. Установка и готовая справка
 
-Для каждого сценария ниже:
-
-1. Привести workspace в актуальное состояние через `status -> init/ensure`.
-2. Явно выбрать `target`, если workspace multi-target.
-3. Построить только минимально достаточный слой.
-4. В ответе разделить `confirmed facts`, `code-derived inferences`, `unresolved assumptions`.
-
-## Сценарий 1. Version-exact проверка platform API
-
-- Задача: проверить, существует ли метод `HTTPСоединение.Получить` в конкретной версии платформы и как он называется в help.
-- Минимальный слой: `platform`
-- Почему этого достаточно: вопрос относится к platform help и language/API facts, а не к metadata или бизнес-логике конфигурации.
-- Команды:
-
-```bash
-python scripts/onec_context.py init \
-  --workspace-root /path/to/workspace \
-  --source-path /path/to/source \
-  --profile base \
-  --hbk-base /opt/1cv8 \
-  --platform 8.3.25.1374
-
-python scripts/onec_context.py resolve-packs --workspace-root /path/to/workspace --role platform --path-only
+```sh
+python3 scripts/install_agent.py --agent codex --platform-pack /path/to/platform-pack.db.zst
 ```
 
-- Что должен доказать агент:
-  - какой version-exact `platform` pack использован
-  - что факт взят из platform help, а не из догадки по соседним API
-  - есть ли unresolved assumption, если version-exact help не собран
+Ожидание: основной skill содержит исполняемые инструменты, справочные материалы
+и `artifacts/platform.kb.db.zst`. Обновление сохраняет подготовленное окружение
+и базу. Отдельные специализированные skills ставятся только с `--supplemental`.
 
-## Сценарий 2. Реквизит документа и табличная часть
+## 2. Подготовка и повторное использование
 
-- Задача: ответить, где в `Document.РеализацияТоваровУслуг.Товары` находится реквизит `Номенклатура` и какой у него тип.
-- Минимальный слой: `metadata`
-- Почему этого достаточно: вопрос про структуру объекта, реквизиты и типы, а не про runtime behavior.
-- Команды:
-
-```bash
-python scripts/onec_context.py ensure --workspace-root /path/to/workspace --need metadata
-
-python scripts/onec_context.py query-kb \
-  --db "$(python scripts/onec_context.py resolve-packs --workspace-root /path/to/workspace --role metadata --target <source-identity> --path-only)" \
-  --q "Document.РеализацияТоваровУслуг.Товары.Номенклатура" \
-  --exact --limit 10
+```sh
+python3 scripts/onec_context.py ensure --workspace-root /path/to/project --need platform --hbk-base /path/to/platform --platform 8.5.1.1343
+python3 scripts/onec_context.py status --workspace-root /path/to/project --strict
+python3 scripts/onec_context.py resolve-packs --workspace-root /path/to/project
 ```
 
-- Что должен доказать агент:
-  - что использовался именно `metadata` layer
-  - какие facts подтверждены metadata pack
-  - что выводов о бизнес-логике пока нет
-  - что в single-target workspace `<source-identity>` можно получить через `resolve-packs` заранее и использовать дальше без переопределения
+Повторите `ensure` без изменения источника. Ожидание: `changed: false`, архив
+платформы не перезаписан, временные файлы извлечения не накопились. При изменении
+HBK или сборщика нужна новая сборка. Исходные HBK, архив и действующий кэш
+сохраняются намеренно.
 
-## Сценарий 3. Почему документ получает определённый статус
+## 3. Точный ответ и границы источника
 
-- Задача: найти, где вызывается `УстановитьСтатусДокумента` и какие обработчики реально влияют на результат.
-- Минимальный слой: `code`
-- Почему этого достаточно: для поиска callers/callees и влияния логики нужна code-level индексация модулей.
-- Команды:
-
-```bash
-python scripts/onec_context.py ensure --workspace-root /path/to/workspace --need code
-
-python scripts/onec_context.py query-code \
-  --db "$(python scripts/onec_context.py resolve-packs --workspace-root /path/to/workspace --role code --target <source-identity> --path-only)" \
-  symbols --q "УстановитьСтатусДокумента"
+```sh
+python3 scripts/onec_context.py query-kb --workspace-root /path/to/project --q 'Структура.Вставить' --exact --version 8.5.1.1343 --json
+python3 scripts/onec_context.py query-kb --workspace-root /path/to/project --q 'ПрочитатьJSON' --exact --version 8.5.1.1343 --detail full --json
+python3 scripts/onec_context.py query-kb --workspace-root /path/to/project --q 'НесуществующийМетодПроверкиToolkit' --exact --json
 ```
 
-- Что должен доказать агент:
-  - какие вызовы и обработчики подтверждены code pack
-  - какие связи являются inference по коду
-  - что без `code` слоя ответ был бы только предположением
+Ожидание: у найденного результата есть соответствующее имя, источник и версия;
+несуществующее имя не подменяется похожим. Проверьте вариант с отсутствующей
+в пакете версией. `--detail full` возвращает сохранённую запись, не исходный HTML.
+Если нужного поля нет, это остаётся неподтверждённым фактом.
 
-## Сценарий 4. Финальное подтверждение по raw source/XML
+## 4. Конфигурация и выбор цели
 
-- Задача: подтвердить exact XML или file-level представление формы/объекта, когда metadata и code уже дали вероятный ответ, но нужен lossless read.
-- Минимальный слой: `full`
-- Почему этого достаточно: здесь нужна не интерпретация, а финальное чтение `ConfigDump` как есть.
-- Команды:
-
-```bash
-python scripts/onec_context.py ensure --workspace-root /path/to/workspace --need full
-
-python scripts/onec_context.py query-config \
-  --db "$(python scripts/onec_context.py resolve-packs --workspace-root /path/to/workspace --role full --target <source-identity> --path-only)" \
-  find --q "РеализацияТоваровУслуг"
+```sh
+python3 scripts/onec_context.py ensure --workspace-root /path/to/project --need metadata --source-path /path/to/ConfigDump
+python3 scripts/onec_context.py resolve-packs --workspace-root /path/to/project --role metadata --all-targets
 ```
 
-- Что должен доказать агент:
-  - что для финального подтверждения выбран `full`, а не более дешёвый слой
-  - какие facts подтверждены raw source/XML
-  - что выводы, сделанные раньше по `metadata` или `code`, теперь подтверждены или опровергнуты
+Выберите идентификатор из результата и передайте его в `query-kb --target`.
+Ожидание: данные разных конфигураций не смешаны. Для поведения подготовьте
+`code`, для точного файла при необходимости `full`. После правок исходников
+используйте `init` с соответствующим профилем: `status` не сравнивает все BSL/XML.
 
-## Сценарий 5. Multi-target workspace
+## 5. Переносимый пакет
 
-- Задача: в mono-repo с несколькими `Configuration.xml` выбрать правильную конфигурацию и только после этого ответить по объекту или коду.
-- Минимальный слой: сначала выбор `target`, затем `metadata` или `code` по задаче
-- Почему этого достаточно: в multi-target repo главный риск не в query syntax, а в том, что агент возьмёт не ту конфигурацию.
-- Команды:
-
-```bash
-python scripts/onec_context.py status --workspace-root /path/to/workspace --strict
-python scripts/onec_context.py resolve-packs --workspace-root /path/to/workspace
-python scripts/onec_context.py resolve-packs --workspace-root /path/to/workspace --role metadata --all-targets
+```sh
+python3 scripts/onec_context.py export --workspace-root /path/to/project --output-dir /path/to/export --archive
 ```
 
-- Что должен доказать агент:
-  - какой `target` выбран по имени и версии
-  - что результаты не смешиваются между target'ами
-  - что при неясном выборе target агент один раз запрашивает уточнение, а не продолжает наугад
+Из корня полученного пакета:
 
-## Сценарий 6. metadata XML export только как fallback или verification
-
-- Задача: ответить по реквизиту, когда нормального `ConfigDump` нет, либо перепроверить спорный metadata fact.
-- Минимальный профиль: `metadata`, то есть `platform + metadata`, с `metadata XML export` как fallback input
-- Почему этого достаточно: здесь нужен metadata-level ответ, но в текущем toolkit профиль `metadata` всё равно строится поверх обязательного `platform` help layer. `metadata XML export` не заменяет source-first route, а страхует его.
-- Команды:
-
-```bash
-python scripts/onec_context.py init \
-  --workspace-root /path/to/workspace \
-  --source-path /path/to/workspace \
-  --profile metadata \
-  --hbk-base /opt/1cv8 \
-  --metadata-source /path/to/metadata-xml-export
+```sh
+python3 tools/resolve_packs.py --bundle-dir .
+python3 tools/verify_local_kb.py --artifacts-dir ./artifacts
 ```
 
-- Что должен доказать агент:
-  - почему обычный `ConfigDump` route недоступен или недостаточен
-  - что `metadata XML export` использован именно как fallback или verification layer
-  - какие ограничения из-за этого остаются в ответе
+Ожидание: пути разрешаются внутри пакета, чтение не требует исходного проекта.
+Окружение Python должно быть подготовлено заранее. Пакет не содержит сборщика.
+Отсутствующий слой нужно подготовить с помощью toolkit и экспортировать заново.
 
-## Минимальная форма ответа агента
+## 6. Проверки и измерения
 
-```text
-Target:
-- <single target | config@version | not selected yet>
-
-Used layers:
-- platform
-- metadata
-
-Confirmed facts:
-- ...
-
-Code-derived inferences:
-- ...
-
-Unresolved assumptions:
-- ...
+```sh
+python3 -m unittest discover -s tests -v
+python3 scripts/onec_context.py verify --workspace-root /path/to/project
+python3 scripts/onec_context.py benchmark --workspace-root /path/to/project --loops 3
 ```
+
+Отдельно измеряйте сборку, первое чтение с распаковкой, повторные запросы и
+запуск отдельного процесса CLI. Записывайте версию платформы, состав пакета,
+среду и промахи поиска. Ограниченный набор запросов не доказывает охват всего
+языка. `verify` не заменяет диагностику и тесты написанного кода 1С.

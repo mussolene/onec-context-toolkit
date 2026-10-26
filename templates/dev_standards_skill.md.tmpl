@@ -1,43 +1,36 @@
 ---
 name: onec-dev-standards
-description: Use this supplemental skill for 1C development standards and conventions when writing or reviewing code with the local toolkit.
+description: Apply source-backed 1C development standards during code review.
 ---
 
-# Onec Dev Standards
+# Onec Development Standards
 
-This is a supplemental skill. Use it when the question is about:
+This is optional guidance for the main onec-context skill. Load
+[the reference](reference.md) when this topic is relevant. Executable tools live
+in the main skill or an exported bundle, not in this supplemental directory.
+Resolve their actual location before running a command. Do not assume that
+`onec-context` is installed on PATH.
 
-- 1C development standards, naming, and module structure conventions
-- code review against style and maintainability rules
-- choosing between "works" and "recommended" implementation patterns
+Use the project's explicit conventions first. For a claim about an ITS rule,
+query the separately prepared `standards` pack and cite the article or stored
+source. Platform HBK does not automatically supply development standards.
 
-## Core rules
+For the installed toolkit, prepare a known local ITS directory with `ensure
+--workspace-root /path/to/project --need standards --standards-dir
+/path/to/its-v8std`, then use `query-kb --workspace-root /path/to/project --role
+standards --q "topic" --json`. Resolve script paths from the main skill root.
+In an exported bundle, resolve role `standards` and query the returned path with
+`tools/local_kb_query.py --db`; the bundle cannot build a missing pack.
 
-1. Separate platform facts from standards recommendations.
-2. Treat standards claims as confirmed only when there is a concrete source:
-   - ITS standards (`its.1c.ru/db/v8std`)
-   - local project conventions documented in the current project
-   - bundled standards reference in this skill (ITS-first)
-3. If a rule is not confirmed by source, mark it as assumption instead of presenting it as mandatory.
-4. When standards conflict with project-specific conventions, follow project conventions and mention the conflict.
-5. Use ITS (`its.1c.ru/db/v8std`) as the default standards source.
+Retrieve only the articles relevant to the change. Distinguish mandatory project
+rules, cited ITS guidance and your own recommendations. Do not invent rule
+numbers or treat an empty search as proof that no rule applies.
 
-## Practical route
+Check API facts against the platform pack, project structures against metadata,
+and behavior against code. Run the project's BSL diagnostics and relevant tests
+after edits. Standards lookup alone does not validate a module.
 
-- For platform/API correctness first use `onec-platform-fact-check`.
-- For object behavior and impact use `onec-explain-object`.
-- For coding-style and conventions use this skill and cite the source of each rule.
-- When ITS standards are needed locally, fetch them with:
-  - `python scripts/onec_context.py fetch-its-standards --output-dir data/standards/its-v8std`
-- For disputed cases provide:
-  - confirmed rule
-  - safer alternative
-  - unresolved assumption (if any)
-
-## Output rules
-
-- Keep confirmed facts, recommendations, and assumptions separated.
-- For each recommendation, name the source (project convention, standards reference, or user-provided policy).
-- Avoid absolute wording like "always forbidden" without an explicit source.
-
-See also `reference.md` in this skill folder for the compact checklist.
+The toolkit's ITS downloader requires access to the selected source and can
+fail on authentication or unavailable pages. Do not promise that installation
+downloads all ITS content. Local articles and configuration code remain within
+the user's agreed data boundary.

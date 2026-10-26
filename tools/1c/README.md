@@ -1,30 +1,48 @@
-# 1C External Processor CLI Helpers
+# Внешние обработки и отчёты
 
-This directory contains neutral helper scripts for packaging and unpacking 1C
-external data processors/reports from XML file trees.
+Эти shell-скрипты вызывают установленный `1cv8`. Они предназначены для операций
+с XML внешних обработок и отчётов и не участвуют в сборке базы справки HBK.
+Команды ниже выполняются из корня toolkit или экспортируемого пакета.
 
-No concrete external processor payload is stored here. Provide your own source
-XML tree and output path through environment variables.
+## Сборка из XML
 
-## Build
-
-```bash
-ONEC_1CV8=/opt/1cv8/8.3.xx.xxxx/x86_64/1cv8 \
-ONEC_EXTERNAL_XML=/path/to/source/root.xml \
-OUT_EPF=/path/to/output/tool.epf \
-ONEC_IB=/path/to/file-ib \
-./tools/1c/build_external_data_processor.sh
+```sh
+ONEC_1CV8=/path/to/1cv8 \
+ONEC_EXTERNAL_XML=/path/to/source/ExternalDataProcessor.xml \
+ONEC_IB=/path/to/file-infobase \
+OUT_EPF=/path/to/result.epf \
+LOG_FILE=/path/to/build.log \
+bash tools/1c/build_external_data_processor.sh
 ```
 
-## Unpack
+`ONEC_EXTERNAL_XML` должен указывать на существующий корневой XML.
+`ONEC_1CV8` явно выбирает исполняемый файл; без него скрипт ищет платформу
+в поддерживаемых каталогах `/opt/1cv8`. Для воспроизводимой сборки задавайте путь.
+`OUT_EPF` по умолчанию находится рядом со скриптом; лучше выбрать выходной путь
+явно. `ONEC_IB` задаёт файловую информационную базу.
 
-```bash
-ONEC_1CV8=/opt/1cv8/8.3.xx.xxxx/x86_64/1cv8 \
-ONEC_EXTERNAL_FILE=/path/to/input/tool.epf \
-OUT_XML_DIR=/path/to/output/xml-tree \
-ONEC_IB=/path/to/file-ib \
-./tools/1c/unpack_external_data_processor.sh
+Для создания временной базы вместо `ONEC_IB` предусмотрены
+`ONEC_AUTO_TEMP_IB=1` и `ONEC_TEMPLATE=/path/to/template.cf` (либо `.dt`).
+`ONEC_TEMP_IB` задаёт каталог такой базы. `ONEC_REMOVE_TEMP_IB=1` удаляет базу,
+созданную скриптом, при завершении после успешного создания. Уже существующая
+база пользователя не удаляется. Родительские каталоги и журналы могут остаться;
+это не механизм общей уборки. При сбое создания база также может требовать
+отдельной проверки. Не используйте рабочую базу как временную.
+
+## Выгрузка в XML
+
+```sh
+ONEC_1CV8=/path/to/1cv8 \
+ONEC_EXTERNAL_FILE=/path/to/source.epf \
+ONEC_IB=/path/to/file-infobase \
+OUT_XML_DIR=/path/to/xml-output \
+LOG_FILE=/path/to/unpack.log \
+bash tools/1c/unpack_external_data_processor.sh
 ```
 
-For headless Linux runs, use a virtual display such as `xvfb-run` when the
-platform build requires GUI libraries.
+Обязательны существующий `ONEC_EXTERNAL_FILE` и `OUT_XML_DIR`. Этот скрипт
+не создаёт временную базу автоматически. Результат и журнал сохраняются.
+
+Сверяйте поддерживаемые операции с версией платформы. Проверяйте журнал,
+код завершения и выходной файл. Сборка не заменяет проверку поведения обработки
+или отчёта в целевой базе.

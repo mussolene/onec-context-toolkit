@@ -6,20 +6,41 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import shutil
 from pathlib import Path
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 TEMPLATES_DIR = REPO_ROOT / "templates"
-MAIN_BUNDLE_DIRS = ("bin", "docs", "scripts", "src", "tools", "templates", "skill")
-MAIN_BUNDLE_FILES = ("README.md", "pyproject.toml")
+MAIN_BUNDLE_DIRS = ("bin", "docs", "scripts", "src", "tools", "templates", "examples")
+MAIN_BUNDLE_FILES = ("README.md", "AGENTS.md", "pyproject.toml")
 SUPPLEMENTAL_SKILLS = (
-    ("onec-platform-cli", "platform_cli_skill.md.tmpl", "platform_cli_reference.md.tmpl"),
-    ("onec-query-strategy", "query_strategy_skill.md.tmpl", "query_strategy_reference.md.tmpl"),
-    ("onec-explain-object", "explain_object_skill.md.tmpl", "explain_object_reference.md.tmpl"),
-    ("onec-platform-fact-check", "platform_fact_check_skill.md.tmpl", "platform_fact_check_reference.md.tmpl"),
-    ("onec-dev-standards", "dev_standards_skill.md.tmpl", "dev_standards_reference.md.tmpl"),
+    (
+        "onec-platform-cli",
+        "platform_cli_skill.md.tmpl",
+        "platform_cli_reference.md.tmpl",
+    ),
+    (
+        "onec-query-strategy",
+        "query_strategy_skill.md.tmpl",
+        "query_strategy_reference.md.tmpl",
+    ),
+    (
+        "onec-explain-object",
+        "explain_object_skill.md.tmpl",
+        "explain_object_reference.md.tmpl",
+    ),
+    (
+        "onec-platform-fact-check",
+        "platform_fact_check_skill.md.tmpl",
+        "platform_fact_check_reference.md.tmpl",
+    ),
+    (
+        "onec-dev-standards",
+        "dev_standards_skill.md.tmpl",
+        "dev_standards_reference.md.tmpl",
+    ),
 )
 CURSOR_RULES = (
     ("onec-platform-cli.mdc", "cursor_platform_cli_rule.mdc.tmpl"),
@@ -45,18 +66,43 @@ def _copy_tree(src: Path, dst: Path) -> None:
         src,
         dst,
         dirs_exist_ok=True,
-        ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "*.pyo", ".DS_Store", ".venv", "build", "dist", ".git"),
+        ignore=shutil.ignore_patterns(
+            "__pycache__",
+            "*.pyc",
+            "*.pyo",
+            ".DS_Store",
+            ".venv",
+            "build",
+            "dist",
+            ".git",
+        ),
     )
 
 
 def _install_main_bundle(target: Path) -> None:
-    if target.exists():
-        shutil.rmtree(target)
+    if target.resolve() == REPO_ROOT.resolve():
+        return
+    if REPO_ROOT.resolve().is_relative_to(target.resolve()):
+        raise ValueError("Installation target cannot contain the toolkit source")
     target.mkdir(parents=True, exist_ok=True)
+    old_template = target / "skill" / "SKILL.md"
+    if old_template.is_file() and "name: onec-context-bundle" in old_template.read_text(encoding="utf-8"):
+        old_template.unlink()
+        if not any(old_template.parent.iterdir()):
+            old_template.parent.rmdir()
     for rel in MAIN_BUNDLE_DIRS:
+        if (target / rel).is_dir():
+            shutil.rmtree(target / rel)
         _copy_tree(REPO_ROOT / rel, target / rel)
     for rel in MAIN_BUNDLE_FILES:
         shutil.copy2(REPO_ROOT / rel, target / rel)
+    for _, _, reference in SUPPLEMENTAL_SKILLS:
+        _write(
+            target
+            / "references"
+            / reference.replace("_reference.md.tmpl", ".md").replace("_", "-"),
+            _render_template(reference),
+        )
 
 
 def _install_supplemental_skills(root: Path) -> dict[str, str]:
@@ -72,33 +118,49 @@ def _install_supplemental_skills(root: Path) -> dict[str, str]:
     return installed
 
 
-def _install_codex(skill_name: str) -> dict[str, str]:
-    codex_home = Path(os.environ.get("CODEX_HOME", str(Path.home() / ".codex"))).expanduser().resolve()
-    target = codex_home / "skills" / skill_name
-    _install_main_bundle(target)
-    content = _render_template("agent_skill.md.tmpl")
-    _write(target / "SKILL.md", content)
-    installed = {"primary": str(target)}
-    installed.update(_install_supplemental_skills(codex_home / "skills"))
-    return installed
-
-
-def _install_claude(skill_name: str) -> dict[str, str]:
-    skills_root = Path.home().expanduser().resolve() / ".claude" / "skills"
+def _install_codex(
+    skill_name: str, skills_dir: Path | None = None, supplemental: bool = False
+) -> dict[str, str]:
+    codex_home = (
+        Path(os.environ.get("CODEX_HOME", str(Path.home() / ".codex")))
+        .expanduser()
+        .resolve()
+    )
+    skills_root = skills_dir or codex_home / "skills"
     target = skills_root / skill_name
     _install_main_bundle(target)
     content = _render_template("agent_skill.md.tmpl")
     _write(target / "SKILL.md", content)
     installed = {"primary": str(target)}
-    installed.update(_install_supplemental_skills(skills_root))
+    if supplemental:
+        installed.update(_install_supplemental_skills(skills_root))
     return installed
 
 
-def _install_cursor(skill_name: str, workspace: Path) -> dict[str, str]:
+def _install_claude(
+    skill_name: str, skills_dir: Path | None = None, supplemental: bool = False
+) -> dict[str, str]:
+    skills_root = (
+        skills_dir or Path.home().expanduser().resolve() / ".claude" / "skills"
+    )
+    target = skills_root / skill_name
+    _install_main_bundle(target)
+    content = _render_template("agent_skill.md.tmpl")
+    _write(target / "SKILL.md", content)
+    installed = {"primary": str(target)}
+    if supplemental:
+        installed.update(_install_supplemental_skills(skills_root))
+    return installed
+
+
+def _install_cursor(
+    skill_name: str, workspace: Path, supplemental: bool = False
+) -> dict[str, str]:
     workspace_root = workspace.expanduser().resolve()
     skills_root = workspace_root / ".cursor" / "skills"
     skill_root = skills_root / skill_name
     _install_main_bundle(skill_root)
+    _write(skill_root / "SKILL.md", _render_template("agent_skill.md.tmpl"))
     target = workspace_root / ".cursor" / "rules" / "onec-context.mdc"
     content = _render_template(
         "cursor_rule.mdc.tmpl",
@@ -106,28 +168,76 @@ def _install_cursor(skill_name: str, workspace: Path) -> dict[str, str]:
     )
     _write(target, content)
     installed = {"primary": str(target)}
-    installed.update(_install_supplemental_skills(skills_root))
-    for rule_name, rule_template in CURSOR_RULES:
+    if supplemental:
+        installed.update(_install_supplemental_skills(skills_root))
+    for rule_name, rule_template in CURSOR_RULES if supplemental else ():
         _write(
             workspace_root / ".cursor" / "rules" / rule_name,
-            _render_template(rule_template, skill_rel_root=f".cursor/skills/{skill_name}"),
+            _render_template(
+                rule_template, skill_rel_root=f".cursor/skills/{skill_name}"
+            ),
         )
     return installed
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Install 1C context integration into an agent")
+    parser = argparse.ArgumentParser(
+        description="Install 1C context integration into an agent"
+    )
     parser.add_argument("--agent", required=True, choices=["codex", "claude", "cursor"])
     parser.add_argument("--skill-name", default="onec-context")
-    parser.add_argument("--workspace", default=".", help="Cursor target workspace; ignored for Codex/Claude.")
+    parser.add_argument(
+        "--workspace",
+        default=".",
+        help="Cursor target workspace; ignored for Codex/Claude.",
+    )
+    parser.add_argument(
+        "--skills-dir", type=Path, help="Explicit skill directory for Codex/Claude"
+    )
+    parser.add_argument(
+        "--platform-pack",
+        type=Path,
+        help="Include a built platform .db.zst for immediate offline lookup",
+    )
+    parser.add_argument(
+        "--supplemental",
+        action="store_true",
+        help="Also install separate specialist skills (default: one self-contained skill)",
+    )
     args = parser.parse_args()
+    if not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", args.skill_name):
+        parser.error("skill-name must contain lowercase words separated by hyphens")
+    if args.skills_dir and args.agent == "cursor":
+        parser.error("Use --workspace for Cursor")
+    if args.platform_pack and (
+        not args.platform_pack.is_file()
+        or not args.platform_pack.name.endswith(".db.zst")
+    ):
+        parser.error("platform-pack must be an existing .db.zst file")
+    if args.skills_dir:
+        args.skills_dir = args.skills_dir.expanduser().resolve()
 
     if args.agent == "codex":
-        installed = _install_codex(args.skill_name)
+        installed = _install_codex(args.skill_name, args.skills_dir, args.supplemental)
     elif args.agent == "claude":
-        installed = _install_claude(args.skill_name)
+        installed = _install_claude(args.skill_name, args.skills_dir, args.supplemental)
     else:
-        installed = _install_cursor(args.skill_name, Path(args.workspace))
+        installed = _install_cursor(
+            args.skill_name, Path(args.workspace), args.supplemental
+        )
+
+    primary = Path(installed["primary"])
+    skill_root = (
+        (Path(args.workspace).resolve() / ".cursor" / "skills" / args.skill_name)
+        if args.agent == "cursor"
+        else primary
+    )
+    if args.platform_pack:
+        destination = skill_root / "artifacts" / "platform.kb.db.zst"
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        if args.platform_pack.resolve() != destination.resolve():
+            shutil.copy2(args.platform_pack, destination)
+        installed["platform_pack"] = str(destination)
 
     print(
         json.dumps(

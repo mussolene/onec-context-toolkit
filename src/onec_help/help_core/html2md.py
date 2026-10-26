@@ -32,7 +32,9 @@ def resolve_href(current_path: Path, href: str, base_dir: Path) -> str | None:
         base_dir / Path(rel_str).with_suffix(".html"),
     ]
     if not rel_str.endswith((".md", ".html", ".htm")):
-        candidates.extend([base_dir / (rel_str + ".md"), base_dir / (rel_str + ".html")])
+        candidates.extend(
+            [base_dir / (rel_str + ".md"), base_dir / (rel_str + ".html")]
+        )
     for c in candidates:
         if c.exists() and c.is_file():
             try:
@@ -109,7 +111,11 @@ def _normalize_md_text(s: str) -> str:
     """Replace HTML entities with Unicode and normalize composite characters for consistent search."""
     if not s:
         return s
-    s = html.unescape(s)  # &nbsp; &amp; &lt; &#160; etc. → real characters
+    # Code has already been decoded by the HTML parser; another unescape changes literals.
+    s = "".join(
+        part if part.startswith("```") else html.unescape(part)
+        for part in re.split(r"(```[\s\S]*?```)", s)
+    )
     s = unicodedata.normalize("NFC", s)  # canonical composition (é as one codepoint)
     return s
 
@@ -118,38 +124,52 @@ def _table_to_md(table) -> str:
     """Convert a <table> to Markdown table."""
     rows = []
     for tr in table.find_all("tr"):
-        cells = [td.get_text(separator=" ", strip=True) for td in tr.find_all(["td", "th"])]
+        cells = [
+            td.get_text(separator=" ", strip=True) for td in tr.find_all(["td", "th"])
+        ]
         if cells:
             rows.append("| " + " | ".join(cells) + " |")
     if not rows:
         return ""
     if len(rows) >= 2:
-        rows.insert(1, "|" + "|".join([" --- " for _ in rows[0].split("|")[1:-1]]) + "|")
+        rows.insert(
+            1, "|" + "|".join([" --- " for _ in rows[0].split("|")[1:-1]]) + "|"
+        )
     return "\n".join(rows) + "\n\n"
 
 
 def _legacy_body_to_md(body) -> str:
     """Convert legacy article body (H1–H6, P, TABLE, STRONG) to Markdown."""
     lines = []
-    for elem in body.find_all(["h1", "h2", "h3", "h4", "h5", "h6", "p", "table", "pre"]):
+    for elem in body.find_all(
+        ["h1", "h2", "h3", "h4", "h5", "h6", "p", "table", "pre"]
+    ):
         tag = elem.name.lower()
         if tag in ("h1", "h2", "h3", "h4", "h5", "h6"):
             level = int(tag[1])
             lines.append(
-                "\n" + "#" * level + " " + elem.get_text(separator=" ", strip=True) + "\n\n"
+                "\n"
+                + "#" * level
+                + " "
+                + elem.get_text(separator=" ", strip=True)
+                + "\n\n"
             )
         elif tag == "table":
             tbl = _table_to_md(elem)
             if tbl:
                 lines.append(tbl)
         elif tag == "pre":
-            lines.append("```\n" + elem.get_text(separator="\n", strip=True) + "\n```\n\n")
+            lines.append(
+                "```\n" + elem.get_text(separator="\n", strip=True) + "\n```\n\n"
+            )
         elif tag == "p":
             text = elem.get_text(separator=" ", strip=True)
             if text:
                 # Inline links: keep [text](url)
                 for a in elem.find_all("a", href=True):
-                    a.replace_with("[" + a.get_text(strip=True) + "](" + a["href"] + ")")
+                    a.replace_with(
+                        "[" + a.get_text(strip=True) + "](" + a["href"] + ")"
+                    )
                 text = elem.get_text(separator=" ", strip=True)
                 lines.append(text + "\n\n")
     return "\n".join(lines).strip()
@@ -222,7 +242,9 @@ def _try_fix_mojibake(text: str, raw: bytes) -> str | None:
     return None
 
 
-def read_file_with_encoding_fallback(path: Path, encodings: tuple[str, ...] | None = None) -> str:
+def read_file_with_encoding_fallback(
+    path: Path, encodings: tuple[str, ...] | None = None
+) -> str:
     """Читает файл, пробуя кодировки по порядку. При признаках кракозябр пробует альтернативу."""
     if encodings is None:
         encodings = _file_encodings()
@@ -273,7 +295,9 @@ def _find_v8sh_chapter(soup: BeautifulSoup, prefix: str):
 def _iter_v8sh_chapter_nodes(chapter) -> list[Any]:
     nodes: list[Any] = []
     for sibling in chapter.next_siblings:
-        if getattr(sibling, "get", None) and "V8SH_chapter" in (sibling.get("class") or []):
+        if getattr(sibling, "get", None) and "V8SH_chapter" in (
+            sibling.get("class") or []
+        ):
             break
         if getattr(sibling, "name", None) == "hr":
             break
@@ -353,43 +377,59 @@ def _v8sh_rubric_params(nodes: list[Any]) -> list[str]:
     idx = 0
     while idx < len(nodes):
         node = nodes[idx]
-        if not (getattr(node, "get", None) and "V8SH_rubric" in (node.get("class") or [])):
+        if not (
+            getattr(node, "get", None) and "V8SH_rubric" in (node.get("class") or [])
+        ):
             idx += 1
             continue
         name_tag = node.find(["p", "div"]) if getattr(node, "find", None) else None
         type_tag = node.find("a") if getattr(node, "find", None) else None
-        name = name_tag.get_text(strip=True) if name_tag else node.get_text(" ", strip=True)
+        name = (
+            name_tag.get_text(strip=True)
+            if name_tag
+            else node.get_text(" ", strip=True)
+        )
         type_name = type_tag.get_text(strip=True) if type_tag else "—"
         desc_nodes: list[Any] = []
         look_ahead = idx + 1
         while look_ahead < len(nodes):
             next_node = nodes[look_ahead]
-            if getattr(next_node, "get", None) and "V8SH_rubric" in (next_node.get("class") or []):
+            if getattr(next_node, "get", None) and "V8SH_rubric" in (
+                next_node.get("class") or []
+            ):
                 break
             desc_nodes.append(next_node)
             look_ahead += 1
         description = _v8sh_nodes_text(desc_nodes)
-        if type_name == "—":
-            for desc_node in desc_nodes:
-                if getattr(desc_node, "name", None):
-                    desc_type = desc_node if desc_node.name == "a" else desc_node.find("a")
-                    if desc_type:
-                        type_name = desc_type.get_text(strip=True) or "—"
-                        break
-        if description:
-            description = re.sub(
-                r"^Тип:\s*.+?(?:\s+\.\s*|\.\s*|\n+)",
-                "",
-                description,
-                flags=re.IGNORECASE | re.DOTALL,
-            ).strip()
-            description = _v8sh_compact_prose(description)
+        # Type names can span several links. Stop at the type sentence, not the first link.
+        type_match = re.match(
+            r"^Тип:\s*(.+?)\s*\.(?:\s|$)", description, re.DOTALL | re.IGNORECASE
+        )
+        if type_match:
+            type_name = " ".join(type_match.group(1).split())
+            type_name = re.sub(r"\s*,\s*", ", ", type_name)
+            description = description[type_match.end() :].strip()
+        description = _v8sh_compact_prose(description)
         bullet = f"- **{name}** ({type_name})"
         if description:
-            bullet += f" — {description}"
+            bullet += f" - {description}"
         items.append(bullet)
         idx = look_ahead
     return items
+
+
+def _v8sh_code_text(node: Any) -> str:
+    """Render code DOM without removing lexical whitespace or explicit line breaks."""
+    if isinstance(node, str):
+        return str(node).replace("\xa0", " ")
+    if getattr(node, "name", None) == "br":
+        return "\n"
+    text = "".join(_v8sh_code_text(child) for child in getattr(node, "children", ()))
+    if getattr(node, "name", None) in {"p", "div", "tr"}:
+        return text + "\n"
+    if getattr(node, "name", None) in {"td", "th"}:
+        return text + " "
+    return text
 
 
 def extract_v8sh_sections(soup: BeautifulSoup) -> dict[str, str]:
@@ -428,7 +468,9 @@ def extract_v8sh_sections(soup: BeautifulSoup) -> dict[str, str]:
         params_nodes = _iter_v8sh_chapter_nodes(params_chapter)
         rubric_params = _v8sh_rubric_params(params_nodes)
         sections["params"] = (
-            "\n".join(rubric_params) if rubric_params else _v8sh_nodes_text(params_nodes)
+            "\n".join(rubric_params)
+            if rubric_params
+            else _v8sh_nodes_text(params_nodes)
         )
 
     example_chapter = _find_v8sh_chapter(soup, "Пример")
@@ -438,14 +480,11 @@ def extract_v8sh_sections(soup: BeautifulSoup) -> dict[str, str]:
         code_blocks: list[str] = []
         for node in example_nodes:
             if getattr(node, "name", None) == "pre":
-                code = node.get_text(separator="\n", strip=True)
+                code = _v8sh_code_text(node).strip()
                 if code:
                     code_blocks.append(code)
             elif getattr(node, "name", None) == "table":
-                code = "\n".join(
-                    " ".join(cell.get_text(strip=True) for cell in row.find_all(["td", "th"]))
-                    for row in node.find_all("tr")
-                ).strip()
+                code = _v8sh_code_text(node).strip()
                 if code:
                     code_blocks.append(code)
             else:
@@ -485,7 +524,9 @@ def extract_v8sh_sections(soup: BeautifulSoup) -> dict[str, str]:
         for sib in version_heading.next_siblings:
             if getattr(sib, "get", None) and "V8SH_chapter" in (sib.get("class") or []):
                 break
-            if getattr(sib, "get", None) and "V8SH_versionInfo" in (sib.get("class") or []):
+            if getattr(sib, "get", None) and "V8SH_versionInfo" in (
+                sib.get("class") or []
+            ):
                 t = sib.get_text(separator=" ", strip=True)
                 if t:
                     parts.append(t)
@@ -521,7 +562,9 @@ _USUAL_SECTION_MAP: dict[str, str] = {
 }
 
 
-def _extract_usual_inline_sections(soup: BeautifulSoup, sections: dict[str, str]) -> None:
+def _extract_usual_inline_sections(
+    soup: BeautifulSoup, sections: dict[str, str]
+) -> None:
     """Fill *sections* from <p class="Usual"> inline-section format (shlang_ru operators)."""
     current_key: str | None = None
     buf: list[str] = []
@@ -558,14 +601,18 @@ def _extract_usual_inline_sections(soup: BeautifulSoup, sections: dict[str, str]
             # Remainder of the <p> after the bold tag
             remainder = p.get_text(" ", strip=True)
             bold_text = bold.get_text(" ", strip=True)
-            after = remainder[len(bold_text) :].strip() if remainder.startswith(bold_text) else ""
+            after = (
+                remainder[len(bold_text) :].strip()
+                if remainder.startswith(bold_text)
+                else ""
+            )
             if after:
                 buf.append(after)
         elif current_key:
             # Collect pre blocks as code
             pre = p.find("pre")
             if pre:
-                code = pre.get_text("\n", strip=True)
+                code = _v8sh_code_text(pre).strip()
                 if code:
                     buf.append(f"```bsl\n{code}\n```")
             else:

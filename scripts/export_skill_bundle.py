@@ -143,7 +143,7 @@ def export_bundle(workspace_root: Path, output_dir: Path, bundle_name: str) -> P
     bundle_root.mkdir(parents=True, exist_ok=True)
 
     runtime_files = [
-        (REPO_ROOT / "skill" / "SKILL.md", bundle_root / "SKILL.md"),
+        (TEMPLATES_DIR / "exported_skill.md.tmpl", bundle_root / "SKILL.md"),
         (REPO_ROOT / "docs" / "1c-platform-cli.md", bundle_root / "docs" / "1c-platform-cli.md"),
         (REPO_ROOT / "tools" / "local_kb_query.py", bundle_root / "tools" / "local_kb_query.py"),
         (REPO_ROOT / "tools" / "verify_local_kb.py", bundle_root / "tools" / "verify_local_kb.py"),

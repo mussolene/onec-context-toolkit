@@ -1,4 +1,20 @@
-python3 scripts/build_local_kb.py all --hbk-base /opt/1cv8 --metadata-source /path/to/metadata-xml-export
-python3 tools/local_kb_query.py --db ./artifacts/kb.db.zst --q "Глобальный контекст.ПрочитатьJSON" --limit 10
-python3 tools/local_kb_query.py --db ./artifacts/kb.db.zst --q "HTTPСоединение.Получить" --limit 10
-python3 tools/local_kb_query.py --db ./artifacts/metadata.kb.db.zst --q "Document.РеализацияТоваровУслуг" --limit 10
+# Команды выполняются из корня toolkit. Замените /path/to/... своими путями.
+# Установка основного skill:
+python3 scripts/install_agent.py --agent codex
+
+# Подготовка справки выбранной версии:
+python3 scripts/onec_context.py ensure --workspace-root /path/to/project --need platform --hbk-base /path/to/platform --platform 8.5.1.1343
+python3 scripts/onec_context.py query-kb --workspace-root /path/to/project --q 'Структура.Вставить' --exact --version 8.5.1.1343 --json
+
+# Подключение конфигурации и выбор цели из результата:
+python3 scripts/onec_context.py ensure --workspace-root /path/to/project --need metadata --source-path /path/to/ConfigDump
+python3 scripts/onec_context.py resolve-packs --workspace-root /path/to/project --role metadata --all-targets
+
+# Диагностика и экспорт подготовленных пакетов:
+python3 scripts/onec_context.py status --workspace-root /path/to/project --strict
+python3 scripts/onec_context.py verify --workspace-root /path/to/project
+python3 scripts/onec_context.py export --workspace-root /path/to/project --output-dir /path/to/export --archive
+
+# Только внутри экспортируемого пакета:
+python3 tools/resolve_packs.py --bundle-dir .
+python3 tools/verify_local_kb.py --artifacts-dir ./artifacts

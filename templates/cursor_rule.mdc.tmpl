@@ -1,21 +1,10 @@
 ---
-description: 1C source-first local context workflow for ConfigDump, extensions, and metadata XML export fallback
+description: Local source-backed 1C development with the self-contained onec-context skill
 globs:
 alwaysApply: false
 ---
 
-- Use the bundled toolkit skill in `{skill_rel_root}`.
-- When working with a 1C repository, initialize local packs if `.onec/workspace.manifest.json` is missing or stale:
-  - `python {skill_rel_root}/scripts/onec_context.py status --workspace-root . --strict`
-  - determine `HBK_ROOT` from the existing manifest only when that directory still exists, otherwise from `ONEC_HBK_BASE` or `/opt/1cv8`; it may point to the platform root, an exact version dir, or its `bin/`; if none is available, ask once
-  - `python {skill_rel_root}/scripts/onec_context.py init --workspace-root . --source-path . --profile base --hbk-base <HBK_ROOT>`
-  - when the exact platform version is known, add `--platform <VERSION>` so platform help lookup stays version-exact
-- Resolve exact pack paths with `python {skill_rel_root}/scripts/onec_context.py resolve-packs --workspace-root .`; do not hardcode filenames.
-- Treat `packs.platform` as the mandatory base layer.
-- Build metadata only when needed via `python {skill_rel_root}/scripts/onec_context.py ensure --workspace-root . --need metadata`.
-- Prefer `packs.platform` for platform language and API knowledge.
-- Build/use `targets.<source-identity>.packs.code` only when module, symbol, caller, and callee lookup are required via `python {skill_rel_root}/scripts/onec_context.py ensure --workspace-root . --need code`.
-- Use `targets.<source-identity>.packs.full` only when exact file bytes are needed.
-- If several targets exist, choose the correct one by config name/version before querying.
-- metadata XML export is optional fallback or verification input, not the primary source.
-- If source version or platform version changes, rerun `status` and rebuild stale packs.
+Use `{skill_rel_root}/SKILL.md` for 1C platform facts, configuration context and
+code review. All tools are inside that directory. Use the included platform
+pack first when its version matches the project. Prepare missing layers with
+`ensure`, following the skill; do not rebuild packs on every question.

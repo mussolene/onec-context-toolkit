@@ -1,35 +1,32 @@
 ---
 name: onec-platform-fact-check
-description: Use this supplemental skill to verify 1C platform and language facts against the local platform help pack before asserting them.
+description: Verify 1C platform API claims against versioned local help.
 ---
 
 # Onec Platform Fact Check
 
-This is a supplemental skill. Use it whenever you are about to assert something about:
+This is optional guidance for the main onec-context skill. Load
+[the reference](reference.md) when this topic is relevant. Executable tools live
+in the main skill or an exported bundle, not in this supplemental directory.
+Resolve their actual location before running a command. Do not assume that
+`onec-context` is installed on PATH.
 
-- built-in platform API
-- 1C language syntax
-- preprocessor directives
-- standard object methods and properties
-- module kinds or event-handler conventions
+Identify the exact platform version and full identifier, such as
+`HTTPСоединение.Получить`. Query the platform pack with `--exact --version` and
+`--json`. Short global names are supported; prefer the full name for members.
+Do not assume English aliases have the same exact-match behavior as stored names.
 
-## Core rules
+Read `--detail full` before asserting parameter order, return types, execution
+context or restrictions. Inspect the actual fields present. The extractor may
+not have preserved every fact in the original page. Search `api_examples`
+separately when an example is needed; examples can be separate records.
 
-1. Treat a platform claim as unverified until it is checked against `packs.platform`.
-2. Align the answer with the exact platform version in the workspace.
-3. Distinguish platform knowledge from configuration-specific behavior.
-4. If the help pack does not confirm the claim, say that it is unverified instead of guessing.
+Without `--exact`, the reader tries an exact match and then lexical FTS5 search.
+A nearby search result is a candidate to inspect, not proof of the requested API.
+No match does not prove absence from the language. Do not transfer a fact from
+one platform version to another without matching evidence.
 
-## Good lookup route
-
-- exact lookup by `Type.Method` or object name
-- if exact lookup fails, broaden to the closest platform term
-- only after that infer from neighboring help topics, and mark it as inference
-
-## Output rules
-
-- separate confirmed facts from inferences
-- name the platform version when it matters
-- avoid answering platform questions from configuration code unless the question is explicitly about how the project uses the API
-
-See also `reference.md` in this skill folder for the compact verification checklist.
+Cite the topic and version. If the source is incomplete, identify the remaining
+question and inspect the locally available original documentation. Generated
+code still needs the project's diagnostics and relevant tests. A help lookup
+is not a successful compilation or execution.

@@ -1,30 +1,32 @@
-# Onec Query Strategy Reference
+# Onec Query Strategy
 
-## Cheapest-first lookup table
+Choose the layer that can prove the claim:
 
-- Platform syntax/API question:
-  - `platform`
-- Configuration object, requisite, type, tabular section, form field, form command:
-  - `metadata`
-- Why object/flag/button influences behavior:
-  - `metadata -> code`
-- Exact source text or raw XML confirmation:
-  - `full`
+| Question | Role | Reader |
+| --- | --- | --- |
+| Platform syntax or built-in API | `platform` | `local_kb_query.py` |
+| ITS development convention | `standards` | `local_kb_query.py` |
+| Object, field, type, form or command | `metadata` | `local_kb_query.py` |
+| Module, declaration or call relationship | `code` | `query_code_pack.py` |
+| Exact source file contents | `full` | `query_config_pack.py` |
 
-## Good escalation examples
+The installed toolkit provides `scripts/onec_context.py resolve-packs
+--workspace-root /path/to/project`. An exported read-only bundle instead provides
+`tools/resolve_packs.py --bundle-dir /path/to/bundle`. Resolve script paths from
+the toolkit or bundle root, not from the project being examined. Both readers
+accept `--role`, `--target` and `--path-only`. Inspect available targets first.
+Do not assume pack filenames or select the first configuration implicitly.
 
-- `HTTPСоединение.Получить`
-  - start with `platform`
-- `Document.РеализацияТоваровУслуг.Товары.Номенклатура`
-  - start with `metadata`
-- `Как флаг УПД влияет на запись документа`
-  - `metadata` to identify the flag and forms
-  - `code` to find readers, writers, and handlers
-  - `full` only if the code index is insufficient
+For platform, metadata and standards, use `tools/local_kb_query.py --db
+/path/to/resolved-pack --q "name" --exact --json`. Drop `--exact` for lexical
+FTS5 search. Use `--version` for a platform claim and `--detail full` for a
+preserved record. Separate examples use `--domain api_examples`.
 
-## Anti-patterns
+The installed toolkit can prepare missing layers using `ensure`. The exported
+bundle cannot build them: report what is missing and request preparation with
+the toolkit. Do not run a rebuild before every lookup. After configuration source
+edits, explicitly rebuild the affected profile; status does not hash every file.
 
-- Do not build `code.pack` for every task by default.
-- Do not use `full` as the first lookup layer.
-- Do not answer platform questions from configuration packs if `platform` can answer them.
-- Do not mix results from multiple targets without naming the target.
+A full record is the extractor's saved record, not the original HTML or a
+cross-layer answer. No match means unconfirmed in this pack. Keep source facts,
+code deductions and unresolved assumptions distinguishable.
