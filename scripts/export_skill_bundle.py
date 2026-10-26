@@ -186,12 +186,9 @@ def export_bundle(workspace_root: Path, output_dir: Path, bundle_name: str) -> P
         pack_dst = bundle_root / "artifacts" / pack_path.name
         manifest_dst = bundle_root / "artifacts" / pack_manifest.name
         _copy(pack_path, pack_dst)
-        try:
-            raw_manifest = json.loads(pack_manifest.read_text(encoding="utf-8"))
-            public_manifest = _sanitize_public_payload(raw_manifest)
-            _write(manifest_dst, json.dumps(public_manifest, ensure_ascii=False, indent=2))
-        except Exception:
-            _copy(pack_manifest, manifest_dst)
+        raw_manifest = json.loads(pack_manifest.read_text(encoding="utf-8"))
+        public_manifest = _sanitize_public_payload(raw_manifest)
+        _write(manifest_dst, json.dumps(public_manifest, ensure_ascii=False, indent=2))
         rel_pack = str(pack_dst.relative_to(bundle_root)).replace("\\", "/")
         if target_name is None:
             copied_packs[str(pack_name)] = rel_pack

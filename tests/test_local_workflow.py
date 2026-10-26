@@ -351,6 +351,24 @@ class LocalWorkflow(unittest.TestCase):
                      "Не использовать вне контекста.", "Недоступен на клиенте."):
             self.assertEqual(_extract_restrictions(text), text)
 
+    def test_export_does_not_copy_unreadable_private_manifest(self):
+        from scripts.export_skill_bundle import export_bundle
+        workspace = self.root / "workspace"
+        (workspace / ".onec").mkdir(parents=True)
+        packs = self.root / "packs"
+        packs.mkdir()
+        manifests = self.root / "manifests"
+        manifests.mkdir()
+        archive = packs / "platform.db.zst"
+        archive.write_bytes(b"synthetic")
+        (manifests / "platform.manifest.json").write_text("invalid private metadata")
+        (workspace / ".onec" / "workspace.manifest.json").write_text(
+            json.dumps({"packs": {"platform": str(archive)}}))
+        output = self.root / "export"
+        with self.assertRaises(json.JSONDecodeError):
+            export_bundle(workspace, output, "bundle")
+        self.assertFalse((output / "bundle" / "artifacts" / "platform.manifest.json").exists())
+
     def test_parameter_sections_keep_defaults_and_union_types(self):
         from bs4 import BeautifulSoup
         from onec_help.help_core.html2md import extract_v8sh_sections

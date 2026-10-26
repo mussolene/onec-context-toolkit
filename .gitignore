@@ -20,3 +20,13 @@ artifacts/*.manifest.json
 tools/1c/*_1cv8_build.log
 tools/1c/*.epf
 tools/1c/*.erf
+
+# Локальная память, исходные пакеты и секреты
+.agent/oacs/
+.oacs/
+.env
+.env.*
+*.hbk
+*.db.zst
+*.db-wal
+*.db-shm
